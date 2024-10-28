@@ -60,6 +60,8 @@ add_executable(my_firewall main.cpp
         TxSenderThread.cpp
         TxSenderThread.hpp
         Config.hpp
+        ArpHandler.cpp
+        ArpHandler.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly

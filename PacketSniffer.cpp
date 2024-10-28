@@ -11,6 +11,7 @@ void PacketSniffer::openDpdkDevices()
 
     _device1 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_1);
     _device2 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_2);
+
     if(_device1 == nullptr)
     {
         throw std::runtime_error("Cannot find device with port '" + std::to_string(DPDK_DEVICE_1) + "'\n");
@@ -23,8 +24,6 @@ void PacketSniffer::openDpdkDevices()
     {
         throw std::runtime_error("Cannot open a device\n");
     }
-
-
 }
 
 void PacketSniffer::printDeviceInfo() const {
@@ -50,28 +49,6 @@ void PacketSniffer::onApplicationInterruptedCallBack(void* cookie)
 
 void PacketSniffer::startAsyncCapture()
 {
-
-    pcpp::MacAddress srcMac(_device2->getMacAddress()); //DPDK NIC's MAC address
-
-    //Ethernet layer (broadcast MAC address)
-    pcpp::EthLayer ethLayer(srcMac, BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
-
-    //ARP layer
-    pcpp::ArpLayer arpLayer(pcpp::ARP_REQUEST, srcMac, pcpp::MacAddress::Zero, DPDK_DEVICE2_IP, ROUTER_IP);
-
-    //ARP request packet
-    pcpp::Packet arpRequestPacket(100);
-    arpRequestPacket.addLayer(&ethLayer);
-    arpRequestPacket.addLayer(&arpLayer);
-    arpRequestPacket.computeCalculateFields();
-
-    if (!_device2->sendPacket(arpRequestPacket))
-    {
-     std::cerr << "Error: Couldn't send the ARP request." << std::endl;
-     _device2->close();
-    }
-    std::cout << "ARP request sent successfully." << std::endl;
-
     std::vector<pcpp::DpdkWorkerThread*> workers_threads;
     workers_threads.emplace_back(new RxReceiverThread(_device1));
     workers_threads.emplace_back(new RxSenderThread(_device2));
@@ -100,7 +77,6 @@ void PacketSniffer::startAsyncCapture()
         packet_stats.printToConsole();
         pcpp::multiPlatformSleep(1);
     }
-
 }
 
 PacketSniffer::PacketSniffer()

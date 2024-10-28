@@ -3,6 +3,8 @@
 #include <DpdkDevice.h>
 #include "QueuesManager.hpp"
 #include "Config.hpp"
+#include <EthLayer.h>
+#include "ArpHandler.hpp"
 
 class TxReceiverThread : public pcpp::DpdkWorkerThread
 {
