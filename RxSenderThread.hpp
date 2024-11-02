@@ -22,6 +22,8 @@ public:
     void stop() override;
 
     uint32_t getCoreId() const override;
+
+    bool isLocalNetworkPacket(const pcpp::IPv4Address& dest_ip, const pcpp::IPv4Address& local_ip, const pcpp::IPv4Address& subnet_mask);
 };
 
 

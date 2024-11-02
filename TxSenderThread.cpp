@@ -17,18 +17,12 @@ bool TxSenderThread::run(uint32_t coreId)
     {
         {
             std::lock_guard<std::mutex> lock_guard(queues_manager.getTxQueueMutex());
-            for(int i=0; i<MAX_RECEIVE_BURST; i++)
+            packets_to_send = std::min(MAX_RECEIVE_BURST,static_cast<int>(queues_manager.getTxQueue()->size()));
+
+            for(int i = 0; i < packets_to_send; i++)
             {
-                 if(!queues_manager.getTxQueue()->empty())
-                 {
-                     mbuf_array[i] = queues_manager.getTxQueue()->front();
-                     queues_manager.getTxQueue()->pop();
-                     packets_to_send++;
-                 }
-                else
-                {
-                    break;
-                }
+                mbuf_array[i] = queues_manager.getTxQueue()->front();
+                queues_manager.getTxQueue()->pop();
             }
         }
         if (packets_to_send > 0)

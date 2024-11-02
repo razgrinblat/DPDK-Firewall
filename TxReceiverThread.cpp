@@ -11,8 +11,8 @@ bool TxReceiverThread::run(uint32_t coreId)
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
     std::vector<pcpp::MBufRawPacket*> valid_packets;
     QueuesManager& queues_manager = QueuesManager::getInstance();
+    ArpHandler& arp_handler = ArpHandler::getInstance();
     pcpp::MacAddress device_mac(_tx_device1->getMacAddress());
-    ArpHandler arp_handler;
     while (!_stop)
     {
         const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
@@ -26,7 +26,7 @@ bool TxReceiverThread::run(uint32_t coreId)
                 if(dest_mac == device_mac || dest_mac == BROADCAST_MAC_ADDRESS) {
                     if(parsed_packet.isPacketOfType(pcpp::ARP)) {
                         pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
-                        arp_handler.handleArpRequest(*arp_layer);
+                        arp_handler.handleReceivedArpPacket(*arp_layer);
                     }
                     else {
                         valid_packets.push_back(mbuf_array[i]);

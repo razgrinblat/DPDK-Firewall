@@ -55,7 +55,6 @@ void PacketSniffer::startAsyncCapture()
     workers_threads.emplace_back(new TxReceiverThread(_device2));
     workers_threads.emplace_back(new TxSenderThread(_device1));
 
-
     int workersCoreMask = 0;
     for (int i = 1; i <= CORES_TO_USE; i++)
     {
@@ -69,13 +68,26 @@ void PacketSniffer::startAsyncCapture()
     std::cout << "starting capture\n";
 
     PacketStats& packet_stats = PacketStats::getInstance();
-    while(_keep_running)
-    {
+    ArpHandler& arp_handler = ArpHandler::getInstance();
+    std::string user_input;
+    while (_keep_running) {
         std::cout << "------------------------------\n";
-        std::cout << "Results: " << std::endl;
+        std::cout << "Enter 'arp' to view ARP cache or 'p' to view packet stats:\n";
         std::cout << "------------------------------\n";
-        packet_stats.printToConsole();
-        pcpp::multiPlatformSleep(1);
+
+        std::getline(std::cin, user_input);
+
+        if (user_input == "arp") {
+            std::cout << "Displaying ARP Cache:\n";
+            arp_handler.printArpCache();
+        }
+        else if (user_input == "p") {
+            std::cout << "Displaying Packet Statistics:\n";
+            packet_stats.printToConsole();
+        }
+        else {
+            std::cout << "Invalid input. Please try again.\n";
+        }
     }
 }
 

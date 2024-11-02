@@ -4,6 +4,7 @@
 #include "QueuesManager.hpp"
 #include "PacketStats.hpp"
 #include "Config.hpp"
+#include "ArpHandler.hpp"
 
 class RxReceiverThread : public pcpp::DpdkWorkerThread
 {

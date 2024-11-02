@@ -41,6 +41,7 @@ void PacketStats::consumePacket(const pcpp::Packet &packet)
 
 }
 
+
 void PacketStats::printToConsole() const
 {
     std::cout

@@ -18,16 +18,17 @@ bool RxReceiverThread::run(uint32_t coreId)
         const uint32_t num_of_packets = _rx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
         if (num_of_packets > 0)
         {
-            for(uint32_t i =0; i<num_of_packets; i++)
-            {
-                pcpp::Packet parsed_packet(mbuf_array[i]);
-                packet_stats.consumePacket(parsed_packet);
-            }
             {
                 std::lock_guard<std::mutex> lock_guard(queues_manager.getRxQueueMutex());
                 for(uint32_t i =0; i<num_of_packets; i++)
                 {
-                    queues_manager.getRxQueue()->push(mbuf_array[i]);
+                    if (mbuf_array[i] != nullptr)
+                    {
+                        queues_manager.getRxQueue()->push(mbuf_array[i]);
+                        pcpp::Packet parsed_packet(mbuf_array[i]);
+                        packet_stats.consumePacket(parsed_packet);
+
+                    }
                 }
             }
         }
