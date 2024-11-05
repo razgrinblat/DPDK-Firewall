@@ -63,7 +63,7 @@ bool RxSenderThread::run(uint32_t coreId)
                         eth_layer->setDestMac(ROUTER_MAC_ADDRESS);
                     }
                     ipv4_layer->setSrcIPv4Address(DPDK_DEVICE2_IP);
-                    ipv4_layer->computeCalculateFields();
+                    parsed_packet.computeCalculateFields();
                 }
                 mbuf_array[packets_to_send++] = raw_packet;
             }

@@ -1,7 +1,8 @@
 #include "PacketStats.hpp"
 
 PacketStats::PacketStats() : _ethPacketCount(0), _ipv4PacketCount(0), _ipv6PacketCount(0),
-                             _tcpPacketCount(0), _udpPacketCount(0), _dnsPacketCount(0), _httpPacketCount(0), _sslPacketCount(0), _arpPacketCount(0),_icmpPacketCount(0),_sshPacketCount(0)
+                             _tcpPacketCount(0), _udpPacketCount(0), _dnsPacketCount(0), _httpPacketCount(0),
+                                _sslPacketCount(0), _arpPacketCount(0),_icmpPacketCount(0),_sshPacketCount(0),_ftpPacketCount(0)
 {
 }
 
@@ -32,13 +33,12 @@ void PacketStats::consumePacket(const pcpp::Packet &packet)
         _sslPacketCount++;
     if (packet.isPacketOfType(pcpp::ARP))
         _arpPacketCount++;
-    if(packet.isPacketOfType(pcpp::ICMP)) {
+    if(packet.isPacketOfType(pcpp::ICMP))
         _icmpPacketCount++;
-    }
-    if(packet.isPacketOfType(pcpp::SSH)) {
+    if(packet.isPacketOfType(pcpp::SSH))
         _sshPacketCount++;
-    }
-
+    if(packet.isPacketOfType(pcpp::FTP))
+        _ftpPacketCount++;
 }
 
 
@@ -55,7 +55,8 @@ void PacketStats::printToConsole() const
             << "SSL packet count:      " << _sslPacketCount << std::endl
             << "ARP packet count:      " << _arpPacketCount << std::endl
             << "ICMP packet count:     " << _icmpPacketCount << std::endl
-            << "SSH packet count:      " << _sshPacketCount << std::endl;
+            << "SSH packet count:      " << _sshPacketCount << std::endl
+            << "FTP packet count:      " << _ftpPacketCount << std::endl;
 }
 
 

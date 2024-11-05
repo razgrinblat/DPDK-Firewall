@@ -11,7 +11,7 @@ bool TxSenderThread::run(uint32_t coreId)
     _stop = false;
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
     uint32_t packets_to_send = 0;
-    pcpp::MacAddress device_mac(_tx_device2->getMacAddress());
+     const pcpp::MacAddress device_mac(_tx_device2->getMacAddress());
     QueuesManager& queues_manager = QueuesManager::getInstance();
     while (!_stop)
     {
@@ -41,7 +41,7 @@ bool TxSenderThread::run(uint32_t coreId)
                 if(ipv4_layer != nullptr)
                 {
                     ipv4_layer->setDstIPv4Address(CLIENT_IP);
-                    ipv4_layer->computeCalculateFields();
+                    parsed_packet.computeCalculateFields();
                 }
             }
             _tx_device2->sendPackets(mbuf_array.data(),packets_to_send,0);

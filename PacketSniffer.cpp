@@ -78,7 +78,6 @@ void PacketSniffer::startAsyncCapture()
         std::getline(std::cin, user_input);
 
         if (user_input == "arp") {
-            std::cout << "Displaying ARP Cache:\n";
             arp_handler.printArpCache();
         }
         else if (user_input == "p") {

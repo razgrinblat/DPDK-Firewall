@@ -2,7 +2,6 @@
 #include <iostream>
 #include "Packet.h"
 
-
 class PacketStats
 {
 private:
@@ -17,6 +16,7 @@ private:
     uint32_t _arpPacketCount;
     uint32_t _icmpPacketCount;
     uint32_t _sshPacketCount;
+    uint32_t _ftpPacketCount;
 
     PacketStats();
 
