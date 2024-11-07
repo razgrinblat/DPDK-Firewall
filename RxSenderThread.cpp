@@ -16,6 +16,7 @@ bool RxSenderThread::run(uint32_t coreId)
     pcpp::MacAddress device_mac(_rx_device2->getMacAddress());
     QueuesManager& queues_manager = QueuesManager::getInstance();
     ArpHandler& arp_handler = ArpHandler::getInstance();
+    PacketStats& packet_stats = PacketStats::getInstance();
     while (!_stop)
     {
         packets_to_process.clear();
@@ -52,7 +53,7 @@ bool RxSenderThread::run(uint32_t coreId)
                         eth_layer->setDestMac(dest_mac);
                     }
                     ipv4_layer->setSrcIPv4Address(DPDK_DEVICE2_IP);
-                    ipv4_layer->computeCalculateFields();
+                    parsed_packet.computeCalculateFields();
                 }
                 else
                 {
@@ -65,18 +66,13 @@ bool RxSenderThread::run(uint32_t coreId)
                     ipv4_layer->setSrcIPv4Address(DPDK_DEVICE2_IP);
                     parsed_packet.computeCalculateFields();
                 }
+                packet_stats.consumePacket(parsed_packet);
                 mbuf_array[packets_to_send++] = raw_packet;
             }
         }
         if (packets_to_send > 0) {
             _rx_device2->sendPackets(mbuf_array.data(), packets_to_send);
         }
-    }
-    //clean the mbuf_array at exit
-    for (int i = 0; i < MAX_RECEIVE_BURST; i++)
-    {
-        if (mbuf_array[i] != nullptr)
-            delete mbuf_array[i];
     }
     return true;
 }

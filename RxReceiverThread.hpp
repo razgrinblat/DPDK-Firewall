@@ -2,7 +2,6 @@
 #include <DpdkDeviceList.h>
 #include <DpdkDevice.h>
 #include "QueuesManager.hpp"
-#include "PacketStats.hpp"
 #include "Config.hpp"
 #include "ArpHandler.hpp"
 

@@ -12,7 +12,6 @@ bool RxReceiverThread::run(uint32_t coreId)
     _stop = false;
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
     QueuesManager& queues_manager = QueuesManager::getInstance();
-    PacketStats& packet_stats = PacketStats::getInstance();
     while (!_stop)
     {
         const uint32_t num_of_packets = _rx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
@@ -25,18 +24,10 @@ bool RxReceiverThread::run(uint32_t coreId)
                     if (mbuf_array[i] != nullptr)
                     {
                         queues_manager.getRxQueue()->push(mbuf_array[i]);
-                        pcpp::Packet parsed_packet(mbuf_array[i]);
-                        packet_stats.consumePacket(parsed_packet);
-
                     }
                 }
             }
         }
-    }
-    for (int i = 0; i < MAX_RECEIVE_BURST; i++)
-    {
-        if (mbuf_array[i] != nullptr)
-            delete mbuf_array[i];
     }
     return true;
 }

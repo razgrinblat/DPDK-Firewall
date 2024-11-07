@@ -15,7 +15,7 @@ private:
     QueuesManager();
 
 public:
-    ~QueuesManager() = default;
+    ~QueuesManager();
     QueuesManager(const QueuesManager&) = delete;
     QueuesManager& operator=(const QueuesManager&) = delete;
     static QueuesManager& getInstance();
@@ -24,5 +24,7 @@ public:
     std::shared_ptr<std::queue<pcpp::MBufRawPacket*>> getTxQueue();
     std::mutex& getRxQueueMutex();
     std::mutex& getTxQueueMutex();
+
+    void clearQueue( std::shared_ptr<std::queue<pcpp::MBufRawPacket*>>& queue_ptr);
 
 };

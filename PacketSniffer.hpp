@@ -12,12 +12,14 @@
 #include "RxSenderThread.hpp"
 #include "TxReceiverThread.hpp"
 #include "TxSenderThread.hpp"
+#include <csignal>
 
 class PacketSniffer
 {
 private:
     pcpp::DpdkDevice* _device1;
     pcpp::DpdkDevice* _device2;
+    std::vector<pcpp::DpdkWorkerThread*> _workers_threads;
     static bool _keep_running;
 
     void openDpdkDevices();
@@ -26,11 +28,15 @@ private:
 
     static void onApplicationInterruptedCallBack(void* cookie);
 
-    void startAsyncCapture();
+    void startingDpdkThreads();
+
+    void closeDevices();
 
 public:
     PacketSniffer();
     ~PacketSniffer();
+
+    void startingCapture();
 
 };
 

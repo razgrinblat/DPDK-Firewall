@@ -4,25 +4,21 @@ bool PacketSniffer::_keep_running;
 
 void PacketSniffer::openDpdkDevices()
 {
-    pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterruptedCallBack, nullptr);
+    pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterruptedCallBack, this);
 
-    pcpp::CoreMask core_mask_to_use = pcpp::getCoreMaskForAllMachineCores();
+    const pcpp::CoreMask core_mask_to_use = pcpp::getCoreMaskForAllMachineCores();
     pcpp::DpdkDeviceList::initDpdk(core_mask_to_use,MBUF_POOL_SIZE);
 
     _device1 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_1);
     _device2 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_2);
 
-    if(_device1 == nullptr)
+    if(_device1 == nullptr || !_device1->open())
     {
         throw std::runtime_error("Cannot find device with port '" + std::to_string(DPDK_DEVICE_1) + "'\n");
     }
-    if(_device2 == nullptr)
+    if(_device2 == nullptr || !_device2->open())
     {
         throw std::runtime_error("Cannot find device with port '" + std::to_string(DPDK_DEVICE_2) + "'\n");
-    }
-    if(!_device1->open() || !_device2->open())
-    {
-        throw std::runtime_error("Cannot open a device\n");
     }
 }
 
@@ -42,37 +38,25 @@ void PacketSniffer::printDeviceInfo() const {
 
 void PacketSniffer::onApplicationInterruptedCallBack(void* cookie)
 {
+    auto* sniffer = static_cast<PacketSniffer*>(cookie);
+
     _keep_running = false;
     std::cout << std::endl << "Shutting down..." << std::endl;
     pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
+    sniffer->closeDevices();
+
 }
 
-void PacketSniffer::startAsyncCapture()
+void PacketSniffer::startingCapture()
 {
-    std::vector<pcpp::DpdkWorkerThread*> workers_threads;
-    workers_threads.emplace_back(new RxReceiverThread(_device1));
-    workers_threads.emplace_back(new RxSenderThread(_device2));
-    workers_threads.emplace_back(new TxReceiverThread(_device2));
-    workers_threads.emplace_back(new TxSenderThread(_device1));
+    std::cout << "starting capturing packets...\n";
 
-    int workersCoreMask = 0;
-    for (int i = 1; i <= CORES_TO_USE; i++)
-    {
-        workersCoreMask = workersCoreMask | (1 << i);
-    }
-
-    if (!pcpp::DpdkDeviceList::getInstance().startDpdkWorkerThreads(workersCoreMask, workers_threads))
-    {
-        throw std::runtime_error("Couldn't start worker threads\n");
-    }
-    std::cout << "starting capture\n";
-
-    PacketStats& packet_stats = PacketStats::getInstance();
+    const PacketStats& packet_stats = PacketStats::getInstance();
     ArpHandler& arp_handler = ArpHandler::getInstance();
     std::string user_input;
     while (_keep_running) {
         std::cout << "------------------------------\n";
-        std::cout << "Enter 'arp' to view ARP cache or 'p' to view packet stats:\n";
+        std::cout << "Enter 'arp' to view ARP cache,'p' to view packet stats or 'exit' to stop:\n";
         std::cout << "------------------------------\n";
 
         std::getline(std::cin, user_input);
@@ -84,22 +68,37 @@ void PacketSniffer::startAsyncCapture()
             std::cout << "Displaying Packet Statistics:\n";
             packet_stats.printToConsole();
         }
+        else if(user_input == "exit") {
+            _keep_running = false;
+            pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
+        }
         else {
             std::cout << "Invalid input. Please try again.\n";
         }
     }
 }
 
-PacketSniffer::PacketSniffer()
+void PacketSniffer::startingDpdkThreads()
 {
-    _keep_running = true;
-    openDpdkDevices();
-    printDeviceInfo();
-    startAsyncCapture();
 
+    _workers_threads.emplace_back(new RxReceiverThread(_device1));
+    _workers_threads.emplace_back(new RxSenderThread(_device2));
+    _workers_threads.emplace_back(new TxReceiverThread(_device2));
+    _workers_threads.emplace_back(new TxSenderThread(_device1));
+
+    int workersCoreMask = 0;
+    for (int i = 1; i <= CORES_TO_USE; i++)
+    {
+        workersCoreMask = workersCoreMask | (1 << i);
+    }
+
+    if (!pcpp::DpdkDeviceList::getInstance().startDpdkWorkerThreads(workersCoreMask, _workers_threads))
+    {
+        throw std::runtime_error("Couldn't start worker threads\n");
+    }
 }
 
-PacketSniffer::~PacketSniffer()
+void PacketSniffer::closeDevices()
 {
     if (_device1 != nullptr && _device1->isOpened())
     {
@@ -111,4 +110,27 @@ PacketSniffer::~PacketSniffer()
         _device2->stopCapture();
         _device2->close();
     }
+}
+
+
+PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr)
+{
+    _keep_running = true;
+    try {
+        openDpdkDevices();
+        printDeviceInfo();
+        startingDpdkThreads();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception:" << e.what()<< std::endl;
+    }
+}
+
+PacketSniffer::~PacketSniffer()
+{
+    for (const auto* thread : _workers_threads) {
+        delete thread;
+    }
+    _workers_threads.clear();
+    closeDevices();
 }

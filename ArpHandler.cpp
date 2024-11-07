@@ -84,19 +84,23 @@ void ArpHandler::sendArpRequest(const pcpp::IPv4Address &target_ip)
         int attempts = 0;               // Current attempt count
 
         const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_2);
+        PacketStats& packet_stats = PacketStats::getInstance();
 
         // Loop to retry ARP requests
         while (attempts < MAX_RETRIES) {
             // Create and send ARP request packet
             pcpp::EthLayer ethLayer(DPDK_DEVICE2_MAC_ADDRESS, BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
             pcpp::ArpLayer arpLayer(pcpp::ARP_REQUEST, DPDK_DEVICE2_MAC_ADDRESS, pcpp::MacAddress::Zero, DPDK_DEVICE2_IP, target_ip);
-            pcpp::Packet arpRequestPacket(100);
-            arpRequestPacket.addLayer(&ethLayer);
-            arpRequestPacket.addLayer(&arpLayer);
-            arpRequestPacket.computeCalculateFields();
+            pcpp::Packet arp_request_packet(100);
+            arp_request_packet.addLayer(&ethLayer);
+            arp_request_packet.addLayer(&arpLayer);
+            arp_request_packet.computeCalculateFields();
 
-            if (!device->sendPacket(arpRequestPacket)) {
-                throw std::runtime_error("Error: Couldn't send the ARP request.");
+            if (!device->sendPacket(arp_request_packet)) {
+                std::cerr << "Error: Couldn't send the ARP request." << std::endl;
+            }
+            else {
+                packet_stats.consumePacket(arp_request_packet);
             }
             // Wait for a response or timeout
             std::unique_lock<std::mutex> lock(_cache_mutex);
@@ -142,6 +146,7 @@ void ArpHandler::printArpCache()
 void ArpHandler::sendArpResponse(const pcpp::IPv4Address &target_ip, const pcpp::MacAddress &target_mac,
                                  const pcpp::IPv4Address &requester_ip, const pcpp::MacAddress &requester_mac, uint16_t device_id)
 {
+    PacketStats& packet_stats = PacketStats::getInstance();
     pcpp::EthLayer eth_layer(requester_mac,target_mac,PCPP_ETHERTYPE_ARP);
     pcpp::ArpLayer arp_layer(pcpp::ARP_REPLY,requester_mac,target_mac,requester_ip,target_ip);
     pcpp::Packet arp_response_packet(100);
@@ -151,6 +156,9 @@ void ArpHandler::sendArpResponse(const pcpp::IPv4Address &target_ip, const pcpp:
     auto device =  pcpp::DpdkDeviceList::getInstance().getDeviceByPort(device_id);
     if (!device->sendPacket(arp_response_packet))
     {
-        throw std::runtime_error ("Error: Couldn't send the ARP response.");
+        std::cerr << "Error: Couldn't send the ARP response.";
+    }
+    else {
+        packet_stats.consumePacket(arp_response_packet);
     }
 }

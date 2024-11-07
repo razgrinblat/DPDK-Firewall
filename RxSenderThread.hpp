@@ -5,6 +5,7 @@
 #include <EthLayer.h>
 #include <IPv4Layer.h>
 #include "Config.hpp"
+#include "PacketStats.hpp"
 
 class RxSenderThread : public pcpp::DpdkWorkerThread
 {

@@ -48,11 +48,6 @@ bool TxSenderThread::run(uint32_t coreId)
             packets_to_send = 0;
         }
     }
-    for (int i = 0; i < MAX_RECEIVE_BURST; i++)
-    {
-        if (mbuf_array[i] != nullptr)
-            delete mbuf_array[i];
-    }
     return true;
 }
 
