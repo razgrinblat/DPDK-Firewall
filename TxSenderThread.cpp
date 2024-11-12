@@ -45,7 +45,6 @@ bool TxSenderThread::run(uint32_t coreId)
                 }
             }
             _tx_device2->sendPackets(mbuf_array.data(),packets_to_send,0);
-            packets_to_send = 0;
         }
     }
     return true;

@@ -12,6 +12,7 @@
 #include <condition_variable>
 #include <thread>
 #include "PacketStats.hpp"
+#include <atomic>
 
 class ArpHandler
 {
@@ -19,9 +20,11 @@ private:
     std::unordered_map<std::string,std::string> _cache;              // IP to MAC cache
     std::unordered_set<std::string> _pending_arp_requests;              // Track IPs with pending ARP requests
     std::mutex _cache_mutex;                                          // Mutex for cache access
-    std::condition_variable _arp_response_received;                    // Condition variable for ARP response
+    std::condition_variable _arp_response_received;// Condition variable for ARP response
+    std::atomic<bool> _stop_flag;
+    std::vector<std::thread> _threads;
 
-    ArpHandler() = default;
+    ArpHandler();
 
 public:
 
@@ -30,6 +33,7 @@ public:
     ArpHandler& operator=(const ArpHandler&) = delete;
     static ArpHandler& getInstance();
 
+    void stopThreads();
     void handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer); //handle Received ARP Requests in TxReceivedThread
     void handleReceivedArpResponse(const pcpp::ArpLayer& arp_layer); //handle Received ARP Responses in TxReceivedThread
     void handleReceivedArpPacket(const pcpp::ArpLayer& arp_layer);

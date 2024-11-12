@@ -10,6 +10,7 @@ bool TxReceiverThread::run(uint32_t coreId)
     _stop = false;
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
     std::vector<pcpp::MBufRawPacket*> valid_packets;
+    valid_packets.reserve(MAX_RECEIVE_BURST);
     QueuesManager& queues_manager = QueuesManager::getInstance();
     ArpHandler& arp_handler = ArpHandler::getInstance();
     PacketStats& packet_stats = PacketStats::getInstance();

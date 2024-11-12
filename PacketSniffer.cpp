@@ -42,9 +42,9 @@ void PacketSniffer::onApplicationInterruptedCallBack(void* cookie)
 
     _keep_running = false;
     std::cout << std::endl << "Shutting down..." << std::endl;
+    ArpHandler::getInstance().stopThreads();
     pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
     sniffer->closeDevices();
-
 }
 
 void PacketSniffer::startingCapture()
@@ -70,6 +70,7 @@ void PacketSniffer::startingCapture()
         }
         else if(user_input == "exit") {
             _keep_running = false;
+            ArpHandler::getInstance().stopThreads();
             pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
         }
         else {

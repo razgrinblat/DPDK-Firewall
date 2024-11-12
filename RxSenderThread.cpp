@@ -13,7 +13,8 @@ bool RxSenderThread::run(uint32_t coreId)
     _stop = false;
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
     std::vector<pcpp::MBufRawPacket*> packets_to_process;
-    pcpp::MacAddress device_mac(_rx_device2->getMacAddress());
+    packets_to_process.reserve(MAX_RECEIVE_BURST);
+    const pcpp::MacAddress device_mac(_rx_device2->getMacAddress());
     QueuesManager& queues_manager = QueuesManager::getInstance();
     ArpHandler& arp_handler = ArpHandler::getInstance();
     PacketStats& packet_stats = PacketStats::getInstance();
@@ -71,7 +72,8 @@ bool RxSenderThread::run(uint32_t coreId)
             }
         }
         if (packets_to_send > 0) {
-            _rx_device2->sendPackets(mbuf_array.data(), packets_to_send);
+            _rx_device2->sendPackets(mbuf_array.data(), packets_to_send,0);
+
         }
     }
     return true;
@@ -90,8 +92,8 @@ uint32_t RxSenderThread::getCoreId() const
 bool RxSenderThread::isLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, const pcpp::IPv4Address &local_ip,
     const pcpp::IPv4Address &subnet_mask)
 {
-    uint32_t dest_network = dest_ip.toInt() & subnet_mask.toInt();
-    uint32_t local_network = local_ip.toInt() & subnet_mask.toInt();
+    const uint32_t dest_network = dest_ip.toInt() & subnet_mask.toInt();
+    const uint32_t local_network = local_ip.toInt() & subnet_mask.toInt();
 
     return local_network == dest_network;
 }

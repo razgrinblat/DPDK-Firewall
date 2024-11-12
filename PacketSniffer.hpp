@@ -12,7 +12,7 @@
 #include "RxSenderThread.hpp"
 #include "TxReceiverThread.hpp"
 #include "TxSenderThread.hpp"
-#include <csignal>
+
 
 class PacketSniffer
 {
