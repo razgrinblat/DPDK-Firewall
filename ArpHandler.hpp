@@ -25,6 +25,8 @@ private:
     std::vector<std::thread> _threads;
 
     ArpHandler();
+    void sendArpResponse(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac,
+                         const pcpp::IPv4Address& requester_ip, const pcpp::MacAddress& requester_mac, uint16_t device_id);
 
 public:
 
@@ -40,7 +42,5 @@ public:
     void sendArpRequest(const pcpp::IPv4Address& target_ip); //send an ARP request in a separate thread
     pcpp::MacAddress getMacAddress(const pcpp::IPv4Address& ip);
     void printArpCache();
-    void sendArpResponse(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac,
-                         const pcpp::IPv4Address& requester_ip, const pcpp::MacAddress& requester_mac, uint16_t device_id);
 };
 

@@ -11,6 +11,12 @@ static constexpr auto ARP_REQUEST_OPCODE = 256;
 static constexpr auto MAX_RETRIES = 4; // Maximum number of ARP request retries
 static constexpr auto SLEEP_DURATION = 500; // 500 ms between retries
 
+//TCP SESSIONS
+static constexpr auto MAX_SESSIONS = 1000;
+static constexpr auto MAX_IDLE_SESSION_TIME = 30; //seconds
+static constexpr auto CLEANUP_IDLE_SESSIONS_TIME = 5; //seconds
+
+
 //THREAD MANAGEMENT
 static constexpr auto CORES_TO_USE = 4;
 
