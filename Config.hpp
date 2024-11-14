@@ -1,4 +1,6 @@
 #pragma once
+#include <MacAddress.h>
+#include <IpAddress.h>
 
 //NETWORK CONFIGURATION
 static constexpr auto MAX_RECEIVE_BURST = 128;

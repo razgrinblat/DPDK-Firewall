@@ -1,5 +1,4 @@
 #include "SessionTable.hpp"
-
 #include <thread>
 
 SessionTable::SessionTable(): _lru_list(MAX_SESSIONS),_stop_flag(true)

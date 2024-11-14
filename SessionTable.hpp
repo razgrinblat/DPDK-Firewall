@@ -16,6 +16,8 @@ enum TcpState {
 struct TcpSession
 {
     TcpState current_state;
+    uint32_t current_ack;
+    uint32_t current_seq;
     pcpp::IPv4Address source_ip;
     pcpp::IPv4Address dst_ip;
     uint16_t source_port;
@@ -34,6 +36,7 @@ private:
 
     SessionTable();
     void cleanUpIdleSessions();
+    void runCleanUpThread();
 
 public:
     ~SessionTable();
@@ -41,7 +44,6 @@ public:
     SessionTable& operator=(const SessionTable&) = delete;
     static SessionTable& getInstance();
 
-    void runCleanUpThread();
     bool isSessionExists(uint32_t session_hash);
     bool addNewSession(uint32_t session_hash, std::unique_ptr<TcpSession> session, const TcpState& current_state);
     bool closeSession(uint32_t session_hash);

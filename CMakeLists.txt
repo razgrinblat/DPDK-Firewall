@@ -64,6 +64,8 @@ add_executable(my_firewall main.cpp
         ArpHandler.hpp
         SessionTable.cpp
         SessionTable.hpp
+        TcpSessionHandler.cpp
+        TcpSessionHandler.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly
