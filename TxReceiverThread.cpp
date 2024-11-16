@@ -14,7 +14,8 @@ bool TxReceiverThread::run(uint32_t coreId)
     QueuesManager& queues_manager = QueuesManager::getInstance();
     ArpHandler& arp_handler = ArpHandler::getInstance();
     PacketStats& packet_stats = PacketStats::getInstance();
-    pcpp::MacAddress device_mac(_tx_device1->getMacAddress());
+    TcpSessionHandler& session_handler = TcpSessionHandler::getInstance();
+    const pcpp::MacAddress device_mac(_tx_device1->getMacAddress());
     while (!_stop)
     {
         const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
@@ -33,6 +34,9 @@ bool TxReceiverThread::run(uint32_t coreId)
                         arp_handler.handleReceivedArpPacket(*arp_layer);
                     }
                     else {
+                        if (parsed_packet.isPacketOfType(pcpp::TCP)) {
+                            session_handler.processInternetTcpPacket(&parsed_packet);
+                        }
                         valid_packets.push_back(mbuf_array[i]);
                     }
                 }

@@ -6,6 +6,7 @@
 #include <EthLayer.h>
 #include "ArpHandler.hpp"
 #include "PacketStats.hpp"
+#include "TcpSessionHandler.hpp"
 
 class TxReceiverThread : public pcpp::DpdkWorkerThread
 {

@@ -8,6 +8,8 @@
 #include "Config.hpp"
 #include <atomic>
 #include <thread>
+#include <iostream>
+#include <iomanip>
 
 enum TcpState {
     SYN_SENT, SYN_RECEIVED, ESTABLISHED, FIN_WAIT1, FIN_WAIT2,
@@ -49,7 +51,7 @@ public:
     bool closeSession(uint32_t session_hash);
     TcpState& getCurrentState(uint32_t session_hash);
     void updateSession(uint32_t session_hash, const TcpState& new_state);
-
+    void printSessionCache();
 
 
 
