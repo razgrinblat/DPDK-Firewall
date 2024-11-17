@@ -11,7 +11,7 @@ std::unique_ptr<TcpSession> TcpSessionHandler::initTcpSession(const pcpp::Packet
     const pcpp::IPv4Address dst_ip = ipv4_layer->getDstIPv4Address();
     const uint16_t src_port = pcpp::netToHost16(tcp_layer->getSrcPort());
     const uint16_t dst_port = pcpp::netToHost16(tcp_layer->getDstPort());
-    auto session = std::unique_ptr<TcpSession>(new TcpSession);
+    auto session = std::make_unique<TcpSession>();
     session->dst_ip = dst_ip;
     session->source_ip = src_ip;
     session->dst_port = dst_port;

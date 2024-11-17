@@ -69,7 +69,7 @@ void PacketSniffer::startingCapture()
             std::cout << "Displaying Packet Statistics:\n";
             packet_stats.printToConsole();
         }
-        else if (user_input == "s") {
+        else if (user_input == "tcp") {
             session_table.printSessionCache();
         }
         else if(user_input == "exit") {
