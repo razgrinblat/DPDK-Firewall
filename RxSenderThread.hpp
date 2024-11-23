@@ -6,6 +6,8 @@
 #include <IPv4Layer.h>
 #include "Config.hpp"
 #include "PacketStats.hpp"
+#include "ArpHandler.hpp"
+#include "TcpSessionHandler.hpp"
 
 class RxSenderThread : public pcpp::DpdkWorkerThread
 {

@@ -2,24 +2,24 @@
 
 SessionTable::SessionTable(): _lru_list(MAX_SESSIONS),_stop_flag(true)
 {
-    _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
+    //_clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
 
 void SessionTable::cleanUpIdleSessions()
 {
     const auto current_time = std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock_guard(_cache_mutex);
-    for (auto it = _session_cache.begin() ; it !=_session_cache.end(); ++it)
+    for (auto it = _session_cache.begin() ; it !=_session_cache.end();)
     {
-        const std::unique_ptr<TcpSession> session = std::move(it->second);
+        const std::unique_ptr<TcpSession>& session = it->second;
         const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
-        if(time_diff >= MAX_IDLE_SESSION_TIME)
+        if(time_diff >= MAX_IDLE_SESSION_TIME || session->current_state == TIME_WAIT)
         {
             _session_cache.erase(it->first);
             _lru_list.eraseElement(it->first);
         }
         else {
-            break;
+            ++it;
         }
     }
 }
@@ -62,7 +62,7 @@ bool SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Tc
         {
             std::lock_guard<std::mutex> lock_guard(_cache_mutex);
             const int result = _lru_list.put(session_hash,&session_key_to_close);
-            if(result == 1)
+            if(result)
             {
                 _session_cache.erase(session_key_to_close); //session cache is full. need to delete the least active connection
             }
@@ -103,6 +103,7 @@ void SessionTable::updateSession(const uint32_t session_hash, const TcpState& ne
     if(isSessionExists(session_hash)) {
         std::lock_guard<std::mutex> lock_guard(_cache_mutex);
         _session_cache[session_hash]->current_state = new_state;
+        _session_cache[session_hash]->last_active_time = std::chrono::steady_clock::now();
     }
 }
 
@@ -112,8 +113,9 @@ void SessionTable::printSessionCache()
     // Print the header
     std::cout << std::setw(15) << "State"
               << std::setw(20) << "Destination IP"
-              << std::setw(30) << "Last Active Time" << std::endl;
-    std::cout << std::string(65, '-') << std::endl;
+              << std::setw(15) << "Ports" << std::endl;
+              //<< std::setw(30) << "Last Active Time" << std::endl;
+    std::cout << std::string(50, '-') << std::endl;
 
     // Iterate through the session cache
     for (const auto& pair : _session_cache) {
@@ -134,15 +136,22 @@ void SessionTable::printSessionCache()
             default:            state = "UNKNOWN"; break;
         }
 
-        // Convert `last_active_time` to a readable format
-        auto last_active_time = session->last_active_time;
-        auto duration_since_epoch = last_active_time.time_since_epoch();
-        auto seconds_since_epoch = std::chrono::duration_cast<std::chrono::seconds>(duration_since_epoch).count();
-
+        // // Convert `last_active_time` to HH:MM:SS format
+        // auto last_active_time = session->last_active_time;
+        // auto now_system_time = std::chrono::system_clock::now() +
+        //     (last_active_time - std::chrono::steady_clock::now());
+        // std::time_t last_active_time_t = std::chrono::system_clock::to_time_t(now_system_time);
+        //
+        // // Format time to HH:MM:SS
+        // std::tm* tm_info = std::localtime(&last_active_time_t);
+        // std::array<char,9> time_buffer; // HH:MM:SS requires 8 characters + null terminator
+        // std::strftime(time_buffer.data(), sizeof(time_buffer), "%H:%M:%S", tm_info);
+        std::string port_info = std::to_string(session->source_port) + " -> " + std::to_string(session->dst_port);
         // Print the session details
         std::cout << std::setw(15) << state
                   << std::setw(20) << session->dst_ip.toString()
-                  << std::setw(30) << seconds_since_epoch << std::endl;
+                  << std::setw(15) << port_info << std::endl;
+                  //<< std::setw(30) << time_buffer.data() << std::endl;
     }
     std::cout << "Total sessions: " << _session_cache.size() << std::endl;
 }

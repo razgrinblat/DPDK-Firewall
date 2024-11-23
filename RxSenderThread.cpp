@@ -1,7 +1,5 @@
 #include "RxSenderThread.hpp"
 
-#include "ArpHandler.hpp"
-
 RxSenderThread::RxSenderThread(pcpp::DpdkDevice *rx_device) :
 _rx_device2(rx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1)
 {
@@ -18,6 +16,7 @@ bool RxSenderThread::run(uint32_t coreId)
     QueuesManager& queues_manager = QueuesManager::getInstance();
     ArpHandler& arp_handler = ArpHandler::getInstance();
     PacketStats& packet_stats = PacketStats::getInstance();
+    TcpSessionHandler& session_handler = TcpSessionHandler::getInstance();
     while (!_stop)
     {
         packets_to_process.clear();
@@ -68,12 +67,15 @@ bool RxSenderThread::run(uint32_t coreId)
                     parsed_packet.computeCalculateFields();
                 }
                 packet_stats.consumePacket(parsed_packet);
+                if(parsed_packet.isPacketOfType(pcpp::TCP)) {
+                    session_handler.processClientTcpPacket(&parsed_packet);
+                }
                 mbuf_array[packets_to_send++] = raw_packet;
             }
         }
-        if (packets_to_send > 0) {
+        if (packets_to_send > 0)
+        {
             _rx_device2->sendPackets(mbuf_array.data(), packets_to_send,0);
-
         }
     }
     return true;

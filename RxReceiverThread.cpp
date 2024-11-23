@@ -24,10 +24,6 @@ bool RxReceiverThread::run(uint32_t coreId)
                 {
                     if (mbuf_array[i] != nullptr)
                     {
-                        pcpp::Packet parsed_packet(mbuf_array[i]);
-                        if (parsed_packet.isPacketOfType(pcpp::TCP)) {
-                            session_handler.processClientTcpPacket(&parsed_packet);
-                        }
                         queues_manager.getRxQueue()->push(mbuf_array[i]);
                     }
                 }

@@ -6,15 +6,9 @@ QueuesManager::QueuesManager()
     _tx_queue = std::make_shared<std::queue<pcpp::MBufRawPacket*>>();
 }
 
-QueuesManager::~QueuesManager()
-{
-    clearQueue(_rx_queue);
-    clearQueue(_tx_queue);
-}
-
 QueuesManager & QueuesManager::getInstance()
 {
-    static QueuesManager instance; // Single instance created on first call
+    static QueuesManager instance;
     return instance;
 }
 
@@ -36,16 +30,5 @@ std::mutex& QueuesManager::getRxQueueMutex()
 std::mutex & QueuesManager::getTxQueueMutex()
 {
     return _tx_queue_mutex;
-}
-
-void QueuesManager::clearQueue(std::shared_ptr<std::queue<pcpp::MBufRawPacket *>> &queue_ptr)
-{
-    while(queue_ptr->empty())
-    {
-        delete queue_ptr->front();
-        queue_ptr->pop();
-    }
-
-    queue_ptr.reset();
 }
 

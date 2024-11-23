@@ -34,7 +34,8 @@ bool TxReceiverThread::run(uint32_t coreId)
                         arp_handler.handleReceivedArpPacket(*arp_layer);
                     }
                     else {
-                        if (parsed_packet.isPacketOfType(pcpp::TCP)) {
+                        if (parsed_packet.isPacketOfType(pcpp::TCP))
+                        {
                             session_handler.processInternetTcpPacket(&parsed_packet);
                         }
                         valid_packets.push_back(mbuf_array[i]);
