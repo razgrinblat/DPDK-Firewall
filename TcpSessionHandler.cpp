@@ -85,14 +85,17 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
         if(_session_table.isSessionExists(tcp_hash)) //session is already exists
         {
             const auto current_state = _session_table.getCurrentState(tcp_hash);
-            if(current_state == SYN_RECEIVED && tcp_header->ackFlag) {
+            if (tcp_header->rstFlag) {
+            _session_table.updateSession(tcp_hash,TIME_WAIT);
+            }
+            else if(current_state == SYN_RECEIVED && tcp_header->ackFlag) {
                 _session_table.updateSession(tcp_hash,ESTABLISHED);
             }
             else if(current_state == ESTABLISHED && tcp_header->ackFlag && !tcp_header->finFlag) {
                 //data transfer, DPI checking in the future
             }
             //handle ACTIVE CLOSE from the client
-            else if(current_state == ESTABLISHED && tcp_header->finFlag && !tcp_header->ackFlag) {
+            else if(current_state == ESTABLISHED && tcp_header->finFlag) {
                 _session_table.updateSession(tcp_hash,FIN_WAIT1);
             }
             else if (current_state == FIN_WAIT2 && tcp_header->ackFlag) {
@@ -111,6 +114,13 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
             }
             else if (current_state == FIN_WAIT1 && tcp_header->ackFlag && tcp_header->finFlag) {
                 _session_table.updateSession(tcp_hash,FIN_WAIT2);
+            }
+            //dup ack's
+            else if (current_state == TIME_WAIT && tcp_header->ackFlag) {
+                //dup ack
+            }
+            else if (current_state == CLOSE_WAIT && tcp_header->ackFlag) {
+                //dup ack
             }
             else {
                  std::cout << "Unexpected TCP packet from Client- " << current_state << std::endl;
@@ -132,7 +142,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
                     _session_table.addNewSession(tcp_hash,std::move(new_session), FIN_WAIT1);
                 }
                 else {
-                     std::cout << "Unexpected TCP packet from Client 2" << std::endl;
+                     // std::cout << "Unexpected TCP packet from Client 2" << std::endl;
                 }
 
             }
@@ -148,7 +158,10 @@ void TcpSessionHandler::processInternetTcpPacket(pcpp::Packet *tcp_packet)
     {
         const auto tcp_header = extractTcpHeader(*tcp_packet);
         const auto current_state = _session_table.getCurrentState(tcp_hash);
-        if(current_state == SYN_SENT && tcp_header->synFlag && tcp_header->ackFlag) {
+        if (tcp_header->rstFlag) {
+        _session_table.updateSession(tcp_hash,TIME_WAIT);
+        }
+        else if(current_state == SYN_SENT && tcp_header->synFlag && tcp_header->ackFlag) {
             _session_table.updateSession(tcp_hash,SYN_RECEIVED);
         }
         else if(current_state == ESTABLISHED && tcp_header->ackFlag && !tcp_header->finFlag) {
@@ -170,6 +183,17 @@ void TcpSessionHandler::processInternetTcpPacket(pcpp::Packet *tcp_packet)
         }
         else if (current_state == FIN_WAIT2 && tcp_header->ackFlag) {
             _session_table.updateSession(tcp_hash,TIME_WAIT);
+        }
+        //handle retransmissions connections
+        else if (current_state == SYN_RECEIVED && tcp_header->synFlag && tcp_header->ackFlag) {
+            _session_table.updateSession(tcp_hash,SYN_RECEIVED);
+        }
+        //dup ack's
+        else if (current_state == TIME_WAIT && tcp_header->ackFlag) {
+            //dup ack
+        }
+        else if (current_state == CLOSE_WAIT && tcp_header->ackFlag) {
+            //dup ack
         }
         else {
             std::cout << "Unexpected TCP packet from Internet - " << current_state << std::endl;

@@ -1,8 +1,8 @@
 #include "SessionTable.hpp"
 
-SessionTable::SessionTable(): _lru_list(MAX_SESSIONS),_stop_flag(true)
+SessionTable::SessionTable(): _lru_list(MAX_SESSIONS),_stop_flag(false)
 {
-    //_clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
+    _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
 
 void SessionTable::cleanUpIdleSessions()
@@ -15,8 +15,8 @@ void SessionTable::cleanUpIdleSessions()
         const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
         if(time_diff >= MAX_IDLE_SESSION_TIME || session->current_state == TIME_WAIT)
         {
-            _session_cache.erase(it->first);
             _lru_list.eraseElement(it->first);
+            it = _session_cache.erase(it);
         }
         else {
             ++it;
@@ -26,7 +26,7 @@ void SessionTable::cleanUpIdleSessions()
 
 SessionTable::~SessionTable()
 {
-    _stop_flag.store(false);
+    _stop_flag.store(true);
     if (_clean_up_thread.joinable()) {
         _clean_up_thread.join();
     }
@@ -41,7 +41,8 @@ SessionTable& SessionTable::getInstance()
 
 void SessionTable::runCleanUpThread()
 {
-    while (_stop_flag.load()) {
+    while (!_stop_flag.load())
+    {
         std::this_thread::sleep_for(std::chrono::seconds(CLEANUP_IDLE_SESSIONS_TIME));
         cleanUpIdleSessions();
     }
