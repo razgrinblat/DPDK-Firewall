@@ -12,20 +12,17 @@ bool RxReceiverThread::run(uint32_t coreId)
     _stop = false;
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
     QueuesManager& queues_manager = QueuesManager::getInstance();
-    TcpSessionHandler& session_handler = TcpSessionHandler::getInstance();
+    const auto rx_queue = queues_manager.getRxQueue();
     while (!_stop)
     {
         const uint32_t num_of_packets = _rx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
         if (num_of_packets > 0)
         {
             {
-                std::lock_guard<std::mutex> lock_guard(queues_manager.getRxQueueMutex());
-                for(uint32_t i =0; i<num_of_packets; i++)
+                std::lock_guard lock_guard(queues_manager.getRxQueueMutex());
+                for(uint32_t i = 0; i<num_of_packets; i++)
                 {
-                    if (mbuf_array[i] != nullptr)
-                    {
-                        queues_manager.getRxQueue()->push(mbuf_array[i]);
-                    }
+                        rx_queue->push(mbuf_array[i]);
                 }
             }
         }

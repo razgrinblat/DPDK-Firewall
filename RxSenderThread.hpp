@@ -16,6 +16,10 @@ private:
     bool _stop;
     uint32_t _coreId;
 
+    bool isLocalNetworkPacket(const pcpp::IPv4Address& dest_ip, const pcpp::IPv4Address& local_ip, const pcpp::IPv4Address& subnet_mask);
+    void fetchPacketToProcess(QueuesManager& queues_manager, std::vector<pcpp::MBufRawPacket*>& packets_to_process);
+    void updateEthernetAndIpLayers(pcpp::Packet& parsed_packet, const pcpp::MacAddress& dest_mac);
+
 public:
     RxSenderThread(pcpp::DpdkDevice* rx_device);
     ~RxSenderThread() = default;
@@ -25,8 +29,6 @@ public:
     void stop() override;
 
     uint32_t getCoreId() const override;
-
-    bool isLocalNetworkPacket(const pcpp::IPv4Address& dest_ip, const pcpp::IPv4Address& local_ip, const pcpp::IPv4Address& subnet_mask);
 };
 
 

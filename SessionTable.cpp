@@ -137,22 +137,22 @@ void SessionTable::printSessionCache()
             default:            state = "UNKNOWN"; break;
         }
 
-        // // Convert `last_active_time` to HH:MM:SS format
-        // auto last_active_time = session->last_active_time;
-        // auto now_system_time = std::chrono::system_clock::now() +
-        //     (last_active_time - std::chrono::steady_clock::now());
-        // std::time_t last_active_time_t = std::chrono::system_clock::to_time_t(now_system_time);
-        //
-        // // Format time to HH:MM:SS
-        // std::tm* tm_info = std::localtime(&last_active_time_t);
-        // std::array<char,9> time_buffer; // HH:MM:SS requires 8 characters + null terminator
-        // std::strftime(time_buffer.data(), sizeof(time_buffer), "%H:%M:%S", tm_info);
+        // Convert `last_active_time` to HH:MM:SS format
+        auto last_active_time = session->last_active_time;
+        auto now_system_time = std::chrono::system_clock::now() +
+            (last_active_time - std::chrono::steady_clock::now());
+        std::time_t last_active_time_t = std::chrono::system_clock::to_time_t(now_system_time);
+
+        // Format time to HH:MM:SS
+        std::tm* tm_info = std::localtime(&last_active_time_t);
+        std::array<char,9> time_buffer; // HH:MM:SS requires 8 characters + null terminator
+        std::strftime(time_buffer.data(), sizeof(time_buffer), "%H:%M:%S", tm_info);
         std::string port_info = std::to_string(session->source_port) + " -> " + std::to_string(session->dst_port);
         // Print the session details
         std::cout << std::setw(15) << state
                   << std::setw(20) << session->dst_ip.toString()
-                  << std::setw(15) << port_info << std::endl;
-                  //<< std::setw(30) << time_buffer.data() << std::endl;
+                  << std::setw(15) << port_info
+                  << std::setw(30) << time_buffer.data() << std::endl;
     }
     std::cout << "Total sessions: " << _session_cache.size() << std::endl;
 }

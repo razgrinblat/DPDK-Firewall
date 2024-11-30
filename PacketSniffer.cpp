@@ -55,13 +55,13 @@ void PacketSniffer::startingCapture()
     ArpHandler& arp_handler = ArpHandler::getInstance();
     SessionTable& session_table = SessionTable::getInstance();
     std::string user_input;
-    while (_keep_running) {
-        std::cout << "------------------------------\n";
-        std::cout << "Enter 'arp' to view ARP cache,'p' to view packet stats, 'tcp' to view TCP session cache or 'exit' to stop:\n";
-        std::cout << "------------------------------\n";
-
+    std::cout << "------------------------------\n";
+    std::cout << "Enter 'arp' to view ARP cache,'p' to view packet stats, 'tcp' to view TCP session cache or 'exit' to stop:\n";
+    std::cout << "------------------------------\n";
+    while (_keep_running)
+    {
         std::getline(std::cin, user_input);
-
+        std::cout << "------------------------------\n";
         if (user_input == "arp") {
             arp_handler.printArpCache();
         }

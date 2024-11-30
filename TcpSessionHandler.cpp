@@ -132,20 +132,19 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
                 auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
                 _session_table.addNewSession(tcp_hash,std::move(new_session), SYN_SENT);
             }
+            // else {
+            //     if(tcp_header->ackFlag) {
+            //         auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
+            //         _session_table.addNewSession(tcp_hash,std::move(new_session), ESTABLISHED);
+            //     }
+            //     if(tcp_header->finFlag) {
+            //         auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
+            //         _session_table.addNewSession(tcp_hash,std::move(new_session), FIN_WAIT1);
+            //     }
             else {
-                if(tcp_header->ackFlag) {
-                    auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
-                    _session_table.addNewSession(tcp_hash,std::move(new_session), ESTABLISHED);
-                }
-                if(tcp_header->finFlag) {
-                    auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
-                    _session_table.addNewSession(tcp_hash,std::move(new_session), FIN_WAIT1);
-                }
-                else {
-                     // std::cout << "Unexpected TCP packet from Client 2" << std::endl;
-                }
-
+                  std::cout << "Unexpected TCP packet from Client 2" << std::endl;
             }
+            // }
         }
     }
 }
