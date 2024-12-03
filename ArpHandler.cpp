@@ -7,7 +7,7 @@ ArpHandler::ArpHandler():_stop_flag(false)
 ArpHandler::~ArpHandler()
 {
     _cache.clear();
-    _pending_arp_requests.clear();
+    _unresolved_arp_requests.clear();
 }
 
 ArpHandler & ArpHandler::getInstance()
@@ -44,7 +44,7 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
         }
     }
     {
-        std::lock_guard<std::mutex> lock_guard(_cache_mutex);
+        std::lock_guard lock_guard(_cache_mutex);
         _cache[arp_layer.getSenderIpAddr().toString()] = arp_layer.getSenderMacAddress().toString(); //update or add the ARP cache
     }
     sendArpResponse(arp_layer.getSenderIpAddr(),arp_layer.getSenderMacAddress(),DPDK_DEVICE2_IP,DPDK_DEVICE2_MAC_ADDRESS,DPDK_DEVICE_2);
@@ -53,9 +53,9 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
 void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
 {
     const std::string sender_ip = arp_layer.getSenderIpAddr().toString();
-    if (_pending_arp_requests.find(sender_ip) != _pending_arp_requests.end()) {
+    if (_unresolved_arp_requests.find(sender_ip) != _unresolved_arp_requests.end()) {
         {
-            std::lock_guard<std::mutex> lock(_cache_mutex);
+            std::lock_guard lock(_cache_mutex);
             _cache[sender_ip] = arp_layer.getSenderMacAddress().toString(); // Update ARP cache
         }
         _arp_response_received.notify_all();
@@ -83,82 +83,33 @@ void ArpHandler::handleReceivedArpPacket(const pcpp::ArpLayer &arp_layer)
 
 void ArpHandler::sendArpRequest(const pcpp::IPv4Address &target_ip)
 {
-
-    std::string target_ip_str = target_ip.toString();
-    {
-        // Check if an ARP request for this IP is already pending
-        std::lock_guard<std::mutex> lock(_cache_mutex);
-        if (_pending_arp_requests.find(target_ip_str) != _pending_arp_requests.end()) {
-            return;
-        }
-        _pending_arp_requests.insert(target_ip_str);
-    }
-
-    if (_stop_flag.load()) {
-        return;  // Prevent new threads from being created after shutdown starts
+    if (isRequestAlreadyPending(target_ip) || _stop_flag.load()) {
+        return; //request is already pending
     }
 
     // Launch a new thread to handle the ARP request
-    _threads.emplace_back([this, target_ip_str, target_ip](){
-        int attempts = 0;               // Current attempt count
-
-        const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_2);
-        PacketStats& packet_stats = PacketStats::getInstance();
-
-        // Loop to retry ARP requests
-        while (attempts < MAX_RETRIES && !_stop_flag.load()) {
-            // Create and send ARP request packet
-            pcpp::EthLayer ethLayer(DPDK_DEVICE2_MAC_ADDRESS, BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
-            pcpp::ArpLayer arpLayer(pcpp::ARP_REQUEST, DPDK_DEVICE2_MAC_ADDRESS, pcpp::MacAddress::Zero, DPDK_DEVICE2_IP, target_ip);
-            pcpp::Packet arp_request_packet(100);
-            arp_request_packet.addLayer(&ethLayer);
-            arp_request_packet.addLayer(&arpLayer);
-            arp_request_packet.computeCalculateFields();
-
-            if (!device->sendPacket(arp_request_packet)) {
-                std::cerr << "Error: Couldn't send the ARP request." << std::endl;
-            }
-            else {
-                packet_stats.consumePacket(arp_request_packet);
-            }
-            // Wait for a response or timeout
-            std::unique_lock<std::mutex> lock(_cache_mutex);
-            if (_arp_response_received.wait_for(lock, std::chrono::milliseconds(SLEEP_DURATION), [&]() {
-                    return _cache.find(target_ip_str) != _cache.end();
-                })) {
-                // ARP response received; exit the thread
-                break;
-            }
-
-            attempts++;
-        }
-        // Remove the IP from pending requests
-        {
-            std::lock_guard<std::mutex> lock(_cache_mutex);
-            _pending_arp_requests.erase(target_ip_str);
-        }
-
+    _threads.emplace_back([this,target_ip](){
+        threadHandler(target_ip);
     });
 }
 
-
 pcpp::MacAddress ArpHandler::getMacAddress(const pcpp::IPv4Address &ip)
 {
-    std::lock_guard<std::mutex> lock(_cache_mutex);
+    std::lock_guard lock(_cache_mutex);
     const auto it = _cache.find(ip.toString());
     return (it != _cache.end()) ? it->second : pcpp::MacAddress::Zero;
 }
 
 void ArpHandler::printArpCache()
 {
-    std::lock_guard<std::mutex> lock_guard(_cache_mutex);
+    std::lock_guard lock_guard(_cache_mutex);
     std::cout << "ARP cache:" << std::endl;
     std::cout << std::left << std::setw(20) << "IP Address" << "MAC Address" << std::endl;
     std::cout << "------------------------------" << std::endl;
 
-    for (const auto& entry : _cache) {
-        std::cout << std::left << std::setw(20) << entry.first
-                  << entry.second << std::endl;
+    for (const auto& entry : _cache)
+    {
+        std::cout << std::left << std::setw(20) << entry.first << entry.second << std::endl;
     }
 }
 
@@ -180,4 +131,69 @@ void ArpHandler::sendArpResponse(const pcpp::IPv4Address &target_ip, const pcpp:
     else {
         packet_stats.consumePacket(arp_response_packet);
     }
+}
+
+bool ArpHandler::isRequestAlreadyPending(const pcpp::IPv4Address &target_ip)
+{
+    std::string target_ip_str = target_ip.toString();
+    {
+        // Check if an ARP request for this IP is already pending
+        std::lock_guard lock(_cache_mutex);
+        if (_unresolved_arp_requests.find(target_ip_str) != _unresolved_arp_requests.end()) {
+            return true;
+        }
+        _unresolved_arp_requests.insert(target_ip_str); // Request was not pending and is now added
+    }
+    return false;
+}
+
+void ArpHandler::threadHandler(const pcpp::IPv4Address &target_ip)
+{
+    int attempts = 0;               // Current attempt count
+    const std::string target_ip_str = target_ip.toString();
+    const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_2);
+
+    // Loop to retry ARP requests
+    while (attempts < MAX_RETRIES && !_stop_flag.load())
+    {
+        // Create and send ARP request packet
+        if (!sendArpRequestPacket(device,target_ip))
+        {
+            std::cerr << "Error: Couldn't send the ARP request." << std::endl;
+        }
+        // Wait for a response or timeout
+        std::unique_lock lock(_cache_mutex);
+        if (_arp_response_received.wait_for(lock, std::chrono::milliseconds(SLEEP_DURATION), [&]() {
+                return _cache.find(target_ip_str) != _cache.end();
+            })) {
+            // ARP response received; exit the thread
+            break;
+            }
+        attempts++;
+    }
+    removePendingRequest(target_ip); //remove the ARP from the pending_arp_list if resolved
+}
+
+bool ArpHandler::sendArpRequestPacket(pcpp::DpdkDevice* device, const pcpp::IPv4Address& target_ip)
+{
+    // Create and send ARP request packet
+    pcpp::EthLayer ethLayer(DPDK_DEVICE2_MAC_ADDRESS, BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
+    pcpp::ArpLayer arpLayer(pcpp::ARP_REQUEST, DPDK_DEVICE2_MAC_ADDRESS, pcpp::MacAddress::Zero, DPDK_DEVICE2_IP, target_ip);
+    pcpp::Packet arp_request_packet(100);
+    arp_request_packet.addLayer(&ethLayer);
+    arp_request_packet.addLayer(&arpLayer);
+    arp_request_packet.computeCalculateFields();
+
+    if (device->sendPacket(arp_request_packet))
+    {
+        PacketStats::getInstance().consumePacket(arp_request_packet);
+        return true;
+    }
+    return false;
+}
+
+void ArpHandler::removePendingRequest(const pcpp::IPv4Address &target_ip)
+{
+    std::lock_guard lock(_cache_mutex);
+    _unresolved_arp_requests.erase(target_ip.toString());
 }

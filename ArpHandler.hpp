@@ -18,15 +18,19 @@ class ArpHandler
 {
 private:
     std::unordered_map<std::string,std::string> _cache;              // IP to MAC cache
-    std::unordered_set<std::string> _pending_arp_requests;              // Track IPs with pending ARP requests
+    std::unordered_set<std::string> _unresolved_arp_requests;              // Track IPs with pending unresolved ARP requests
     std::mutex _cache_mutex;                                          // Mutex for cache access
     std::condition_variable _arp_response_received;// Condition variable for ARP response
-    std::atomic<bool> _stop_flag;
-    std::vector<std::thread> _threads;
+    std::atomic<bool> _stop_flag; //threads stop flag
+    std::vector<std::thread> _threads; //thread pool
 
     ArpHandler();
     void sendArpResponse(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac,
                          const pcpp::IPv4Address& requester_ip, const pcpp::MacAddress& requester_mac, uint16_t device_id);
+    bool isRequestAlreadyPending(const pcpp::IPv4Address& target_ip);
+    void threadHandler(const pcpp::IPv4Address& target_ip); //thread handler for sending ARP requests
+    bool sendArpRequestPacket(pcpp::DpdkDevice* device, const pcpp::IPv4Address& target_ip);
+    void removePendingRequest(const pcpp::IPv4Address& target_ip);
 
 public:
 
@@ -43,4 +47,3 @@ public:
     pcpp::MacAddress getMacAddress(const pcpp::IPv4Address& ip);
     void printArpCache();
 };
-
