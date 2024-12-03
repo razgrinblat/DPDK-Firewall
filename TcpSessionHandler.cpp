@@ -132,6 +132,9 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
                 auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
                 _session_table.addNewSession(tcp_hash,std::move(new_session), SYN_SENT);
             }
+            else if (tcp_header->rstFlag) {
+                _session_table.updateSession(tcp_hash,TIME_WAIT);
+            }
             // else {
             //     if(tcp_header->ackFlag) {
             //         auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
@@ -144,7 +147,6 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
             else {
                   std::cout << "Unexpected TCP packet from Client 2" << std::endl;
             }
-            // }
         }
     }
 }

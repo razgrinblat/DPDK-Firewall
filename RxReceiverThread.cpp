@@ -22,7 +22,7 @@ bool RxReceiverThread::run(uint32_t coreId)
                 std::lock_guard lock_guard(queues_manager.getRxQueueMutex());
                 for(uint32_t i = 0; i<num_of_packets; i++)
                 {
-                        rx_queue->push(mbuf_array[i]);
+                    rx_queue->push(mbuf_array[i]);
                 }
             }
         }

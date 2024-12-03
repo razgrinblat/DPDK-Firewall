@@ -9,14 +9,13 @@ bool RxSenderThread::isLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, cons
     return local_network == dest_network;
 }
 
-void RxSenderThread::fetchPacketToProcess(QueuesManager &queues_manager,
-    std::vector<pcpp::MBufRawPacket *> &packets_to_process)
-{
-    std::lock_guard<std::mutex> lock_guard(queues_manager.getRxQueueMutex());
-    for (int i = 0; i < MAX_RECEIVE_BURST && !queues_manager.getRxQueue()->empty(); ++i)
+void RxSenderThread::fetchPacketToProcess(std::vector<pcpp::MBufRawPacket *> &packets_to_process) const {
+    std::lock_guard lock_guard(_queues_manager.getRxQueueMutex());
+    const auto rx_queue = _queues_manager.getRxQueue();
+    for (int i = 0; i < MAX_RECEIVE_BURST && !rx_queue->empty(); ++i)
     {
-        packets_to_process.push_back(queues_manager.getRxQueue()->front());
-        queues_manager.getRxQueue()->pop();
+        packets_to_process.push_back(rx_queue->front());
+        rx_queue->pop();
     }
 }
 
@@ -35,8 +34,24 @@ void RxSenderThread::updateEthernetAndIpLayers(pcpp::Packet &parsed_packet, cons
     }
 }
 
+bool RxSenderThread::handleLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, pcpp::Packet &parsed_packet)
+{
+    pcpp::MacAddress dest_mac = _arp_handler.getMacAddress(dest_ip);
+    if (dest_mac == pcpp::MacAddress::Zero)
+    {
+        // MAC not resolved, initiate ARP request if not already pending with new thread
+        _arp_handler.sendArpRequest(dest_ip);
+        return false; // Skip this packet until ARP is resolved
+    }
+    updateEthernetAndIpLayers(parsed_packet,dest_mac);
+    return true;
+
+}
+
 RxSenderThread::RxSenderThread(pcpp::DpdkDevice *rx_device) :
-_rx_device2(rx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1)
+_rx_device2(rx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1), _arp_handler(ArpHandler::getInstance()),
+_packet_stats(PacketStats::getInstance()), _queues_manager(QueuesManager::getInstance()), _session_handler(TcpSessionHandler::getInstance())
+
 {
 }
 
@@ -46,18 +61,14 @@ bool RxSenderThread::run(uint32_t coreId)
     _stop = false;
 
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
-    std::vector<pcpp::MBufRawPacket*> packets_to_process;
+    std::vector<pcpp::MBufRawPacket*> packets_to_process; //packets to process from the Rx queue
     packets_to_process.reserve(MAX_RECEIVE_BURST);
 
-    QueuesManager& queues_manager = QueuesManager::getInstance();
-    ArpHandler& arp_handler = ArpHandler::getInstance();
-    PacketStats& packet_stats = PacketStats::getInstance();
-    TcpSessionHandler& session_handler = TcpSessionHandler::getInstance();
     while (!_stop)
     {
         packets_to_process.clear();
 
-        fetchPacketToProcess(queues_manager,packets_to_process);
+        fetchPacketToProcess(packets_to_process);
 
         uint32_t packets_to_send = 0;
         for(auto* raw_packet : packets_to_process)
@@ -70,22 +81,19 @@ bool RxSenderThread::run(uint32_t coreId)
 
                 if(isLocalNetworkPacket(dest_ip,ROUTER_IP,SUBNET_MASK))
                 {
-                    pcpp::MacAddress dest_mac = arp_handler.getMacAddress(dest_ip);
-                    if (dest_mac == pcpp::MacAddress::Zero)
+                    if (!handleLocalNetworkPacket(dest_ip,parsed_packet))
                     {
-                        // MAC not resolved, initiate ARP request if not already pending with new thread
-                        arp_handler.sendArpRequest(dest_ip);
-                        continue; // Skip this packet until ARP is resolved
+                        continue; //continue if the packet ARP not resolved yet
                     }
-                    updateEthernetAndIpLayers(parsed_packet,dest_mac);
                 }
                 else
                 {
                     updateEthernetAndIpLayers(parsed_packet,ROUTER_MAC_ADDRESS);
                 }
-                packet_stats.consumePacket(parsed_packet);
+                _packet_stats.consumePacket(parsed_packet);
+
                 if(parsed_packet.isPacketOfType(pcpp::TCP)) {
-                    session_handler.processClientTcpPacket(&parsed_packet);
+                    _session_handler.processClientTcpPacket(&parsed_packet);
                 }
                 mbuf_array[packets_to_send++] = raw_packet;
             }

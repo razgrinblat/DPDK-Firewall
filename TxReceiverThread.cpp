@@ -1,6 +1,53 @@
 #include "TxReceiverThread.hpp"
 
-TxReceiverThread::TxReceiverThread(pcpp::DpdkDevice *tx_device) : _tx_device1(tx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1)
+void TxReceiverThread::pushToTxQueue()
+{
+    if (!_packets_to_client.empty())
+    {
+        {
+            std::lock_guard lock_guard(_queues_manager.getTxQueueMutex());
+            for(const auto& packet : _packets_to_client)
+            {
+                _queues_manager.getTxQueue()->push(packet);
+            }
+        }
+    }
+}
+
+void TxReceiverThread::processReceivedPackets(std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST>& mbuf_array)
+{
+    const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
+    _packets_to_client.clear();
+    for (int i = 0; i < num_of_packets; ++i)
+    {
+        processSinglePacket(mbuf_array[i]);
+    }
+}
+
+void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
+{
+    pcpp::Packet parsed_packet(raw_packet);
+    pcpp::MacAddress dest_mac = parsed_packet.getLayerOfType<pcpp::EthLayer>()->getDestMac();
+    if(dest_mac == DPDK_DEVICE2_MAC_ADDRESS || dest_mac == BROADCAST_MAC_ADDRESS)
+    {
+        _packet_stats.consumePacket(parsed_packet);
+        if(parsed_packet.isPacketOfType(pcpp::ARP)) {
+            const pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
+            _arp_handler.handleReceivedArpPacket(*arp_layer);
+        }
+        else {
+            if (parsed_packet.isPacketOfType(pcpp::TCP))
+            {
+                _session_handler.processInternetTcpPacket(&parsed_packet);
+            }
+            _packets_to_client.push_back(raw_packet);
+        }
+    }
+}
+
+TxReceiverThread::TxReceiverThread(pcpp::DpdkDevice *tx_device) : _tx_device1(tx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1),
+                                                                  _queues_manager(QueuesManager::getInstance()), _arp_handler(ArpHandler::getInstance()),
+                                                                  _packet_stats(PacketStats::getInstance()), _session_handler(TcpSessionHandler::getInstance())
 {
 }
 
@@ -8,51 +55,14 @@ bool TxReceiverThread::run(uint32_t coreId)
 {
     _coreId = coreId;
     _stop = false;
+
     std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
-    std::vector<pcpp::MBufRawPacket*> valid_packets;
-    valid_packets.reserve(MAX_RECEIVE_BURST);
-    QueuesManager& queues_manager = QueuesManager::getInstance();
-    ArpHandler& arp_handler = ArpHandler::getInstance();
-    PacketStats& packet_stats = PacketStats::getInstance();
-    TcpSessionHandler& session_handler = TcpSessionHandler::getInstance();
-    const pcpp::MacAddress device_mac(_tx_device1->getMacAddress());
+    _packets_to_client.reserve(MAX_RECEIVE_BURST);
+
     while (!_stop)
     {
-        const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
-        valid_packets.clear();
-        for(int i=0; i<num_of_packets; i++)
-        {
-            pcpp::Packet parsed_packet(mbuf_array[i]);
-            pcpp::EthLayer* eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
-            if(eth_layer != nullptr) {
-                pcpp::MacAddress dest_mac = eth_layer->getDestMac();
-                if(dest_mac == device_mac || dest_mac == BROADCAST_MAC_ADDRESS)
-                {
-                    packet_stats.consumePacket(parsed_packet);
-                    if(parsed_packet.isPacketOfType(pcpp::ARP)) {
-                        pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
-                        arp_handler.handleReceivedArpPacket(*arp_layer);
-                    }
-                    else {
-                        if (parsed_packet.isPacketOfType(pcpp::TCP))
-                        {
-                            session_handler.processInternetTcpPacket(&parsed_packet);
-                        }
-                        valid_packets.push_back(mbuf_array[i]);
-                    }
-                }
-            }
-        }
-        if (!valid_packets.empty())
-        {
-            {
-                std::lock_guard<std::mutex> lock_guard(queues_manager.getTxQueueMutex());
-                for(const auto& packet : valid_packets)
-                {
-                    queues_manager.getTxQueue()->push(packet);
-                }
-            }
-        }
+        processReceivedPackets(mbuf_array);
+        pushToTxQueue(); // Pushing packets that are intended for the client
     }
     return true;
 }
