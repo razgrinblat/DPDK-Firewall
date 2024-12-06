@@ -2,10 +2,10 @@
 
 void TxSenderThread::fetchPacketsFromTx(uint32_t& packets_to_send)
 {
-    std::lock_guard<std::mutex> lock_guard(_queues_manager.getTxQueueMutex());
+    std::lock_guard lock_guard(_queues_manager.getTxQueueMutex());
     packets_to_send = std::min(MAX_RECEIVE_BURST,static_cast<int>(_queues_manager.getTxQueue()->size()));
 
-    for(int i = 0; i < packets_to_send; i++)
+    for(int i = 0; i < packets_to_send; ++i)
     {
         _mbuf_array[i] = _queues_manager.getTxQueue()->front();
         _queues_manager.getTxQueue()->pop();
@@ -19,12 +19,12 @@ void TxSenderThread::processPackets(const uint32_t& packets_to_send)
         //change every mbuf src MAC and src IP before forwarding to client
         pcpp::Packet parsed_packet(_mbuf_array[i]);
         pcpp::EthLayer* eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
-        if(eth_layer != nullptr) // set to dpdk device 1 MAC
+        if(eth_layer != nullptr) // set to dpdk device1 MAC
         {
             eth_layer->setSourceMac(DPDK_DEVICE1_MAC_ADDRESS);
             eth_layer->setDestMac(CLIENT_MAC_ADDRESS); //client MAC
         }
-        pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>(); //set to dpdk device 1 IP address
+        pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>(); //set to dpdk device1 IP address
         if(ipv4_layer != nullptr)
         {
             ipv4_layer->setDstIPv4Address(CLIENT_IP);

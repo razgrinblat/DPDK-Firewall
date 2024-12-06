@@ -31,17 +31,15 @@ void ArpHandler::stopThreads()
 void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
 {
     const auto existingEntry = _cache.find(arp_layer.getSenderIpAddr().toString());
-    if (existingEntry != _cache.end())
+    if (existingEntry != _cache.end() && existingEntry->second != arp_layer.getSenderMacAddress().toString())
     {
-        if( existingEntry->second != arp_layer.getSenderMacAddress().toString()) //if there is a different arp entry to this specific ip
-        {
-            std::cout << "[WARNING] Potential ARP spoofing detected: "
-                      << "IP " << arp_layer.getSenderIpAddr().toString()
-                      << " was previously associated with MAC "
-                      << existingEntry->second << " but now has MAC "
-                      << arp_layer.getSenderMacAddress().toString() << std::endl;
-            return;
-        }
+         //if there is a different arp entry to this specific ip
+        std::cout << "[WARNING] Potential ARP spoofing detected: "
+                  << "IP " << arp_layer.getSenderIpAddr().toString()
+                  << " was previously associated with MAC "
+                  << existingEntry->second << " but now has MAC "
+                  << arp_layer.getSenderMacAddress().toString() << std::endl;
+        return;
     }
     {
         std::lock_guard lock_guard(_cache_mutex);
@@ -53,7 +51,8 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
 void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
 {
     const std::string sender_ip = arp_layer.getSenderIpAddr().toString();
-    if (_unresolved_arp_requests.find(sender_ip) != _unresolved_arp_requests.end()) {
+    if (_unresolved_arp_requests.find(sender_ip) != _unresolved_arp_requests.end())
+    {
         {
             std::lock_guard lock(_cache_mutex);
             _cache[sender_ip] = arp_layer.getSenderMacAddress().toString(); // Update ARP cache
@@ -70,12 +69,13 @@ void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
 
 void ArpHandler::handleReceivedArpPacket(const pcpp::ArpLayer &arp_layer)
 {
-    if (arp_layer.getTargetIpAddr() == DPDK_DEVICE2_IP) {
+    if (arp_layer.getTargetIpAddr() == DPDK_DEVICE2_IP)
+    {
         const int opcode = arp_layer.getArpHeader()->opcode;
-        if(opcode == ARP_REQUEST_OPCODE) { //request
+        if(opcode == ARP_REQUEST_OPCODE) { //Arp request
             handleReceivedArpRequest(arp_layer);
         }
-        else { //response
+        else { //Arp response
             handleReceivedArpResponse(arp_layer);
         }
     }
@@ -83,12 +83,14 @@ void ArpHandler::handleReceivedArpPacket(const pcpp::ArpLayer &arp_layer)
 
 void ArpHandler::sendArpRequest(const pcpp::IPv4Address &target_ip)
 {
-    if (isRequestAlreadyPending(target_ip) || _stop_flag.load()) {
+    if (isRequestAlreadyPending(target_ip) || _stop_flag.load())
+    {
         return; //request is already pending
     }
 
     // Launch a new thread to handle the ARP request
-    _threads.emplace_back([this,target_ip](){
+    _threads.emplace_back([this,target_ip]()
+    {
         threadHandler(target_ip);
     });
 }
@@ -139,7 +141,8 @@ bool ArpHandler::isRequestAlreadyPending(const pcpp::IPv4Address &target_ip)
     {
         // Check if an ARP request for this IP is already pending
         std::lock_guard lock(_cache_mutex);
-        if (_unresolved_arp_requests.find(target_ip_str) != _unresolved_arp_requests.end()) {
+        if (_unresolved_arp_requests.find(target_ip_str) != _unresolved_arp_requests.end())
+        {
             return true;
         }
         _unresolved_arp_requests.insert(target_ip_str); // Request was not pending and is now added

@@ -36,7 +36,7 @@ void RxSenderThread::updateEthernetAndIpLayers(pcpp::Packet &parsed_packet, cons
 
 bool RxSenderThread::handleLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, pcpp::Packet &parsed_packet)
 {
-    pcpp::MacAddress dest_mac = _arp_handler.getMacAddress(dest_ip);
+    const pcpp::MacAddress dest_mac = _arp_handler.getMacAddress(dest_ip);
     if (dest_mac == pcpp::MacAddress::Zero)
     {
         // MAC not resolved, initiate ARP request if not already pending with new thread
@@ -92,8 +92,9 @@ bool RxSenderThread::run(uint32_t coreId)
                 }
                 _packet_stats.consumePacket(parsed_packet);
 
-                if(parsed_packet.isPacketOfType(pcpp::TCP)) {
-                    _session_handler.processClientTcpPacket(&parsed_packet);
+                if(parsed_packet.isPacketOfType(pcpp::TCP) && !_session_handler.processClientTcpPacket(&parsed_packet))
+                {
+                    continue; // continue if the packet in unknown
                 }
                 mbuf_array[packets_to_send++] = raw_packet;
             }

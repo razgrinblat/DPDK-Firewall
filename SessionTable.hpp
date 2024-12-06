@@ -13,7 +13,7 @@
 
 enum TcpState {
     SYN_SENT, SYN_RECEIVED, ESTABLISHED, FIN_WAIT1, FIN_WAIT2,
-    CLOSE_WAIT, CLOSING, TIME_WAIT, LAST_ACK, UNKNOWN
+    CLOSE_WAIT,  TIME_WAIT, UNKNOWN
 };
 struct TcpSession
 {
@@ -48,7 +48,6 @@ public:
 
     bool isSessionExists(uint32_t session_hash);
     bool addNewSession(uint32_t session_hash, std::unique_ptr<TcpSession> session, const TcpState& current_state);
-    bool closeSession(uint32_t session_hash);
     TcpState& getCurrentState(uint32_t session_hash);
     void updateSession(uint32_t session_hash, const TcpState& new_state);
     void printSessionCache();

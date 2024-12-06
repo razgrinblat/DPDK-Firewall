@@ -8,12 +8,12 @@ SessionTable::SessionTable(): _lru_list(MAX_SESSIONS),_stop_flag(false)
 void SessionTable::cleanUpIdleSessions()
 {
     const auto current_time = std::chrono::steady_clock::now();
-    std::lock_guard<std::mutex> lock_guard(_cache_mutex);
+    std::lock_guard lock_guard(_cache_mutex);
     for (auto it = _session_cache.begin() ; it !=_session_cache.end();)
     {
         const std::unique_ptr<TcpSession>& session = it->second;
         const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
-        if(time_diff >= MAX_IDLE_SESSION_TIME || session->current_state == TIME_WAIT)
+        if(session->current_state == TIME_WAIT || (time_diff >= MAX_IDLE_SESSION_TIME && session->current_state != ESTABLISHED))
         {
             _lru_list.eraseElement(it->first);
             it = _session_cache.erase(it);
@@ -50,7 +50,7 @@ void SessionTable::runCleanUpThread()
 
 bool SessionTable::isSessionExists(const uint32_t session_hash)
 {
-    std::lock_guard<std::mutex> lock_guard(_cache_mutex);
+    std::lock_guard lock_guard(_cache_mutex);
     const auto it = _session_cache.find(session_hash);
     return it != _session_cache.end();
 }
@@ -61,7 +61,7 @@ bool SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Tc
     {
         uint32_t session_key_to_close;
         {
-            std::lock_guard<std::mutex> lock_guard(_cache_mutex);
+            std::lock_guard lock_guard(_cache_mutex);
             const int result = _lru_list.put(session_hash,&session_key_to_close);
             if(result)
             {
@@ -76,33 +76,19 @@ bool SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Tc
     return false;
 }
 
-bool SessionTable::closeSession(const uint32_t session_hash)
-{
-    if(isSessionExists(session_hash))
-    {
-        {
-            std::lock_guard<std::mutex> lock_guard(_cache_mutex);
-            _session_cache.erase(session_hash);
-            _lru_list.eraseElement(session_hash);
-        }
-        return true;
-    }
-    return false;
-
-}
-
 TcpState& SessionTable::getCurrentState(const uint32_t session_hash)
 {
     if(isSessionExists(session_hash)) {
-        std::lock_guard<std::mutex> lock_guard(_cache_mutex);
+        std::lock_guard lock_guard(_cache_mutex);
         return _session_cache[session_hash]->current_state;
     }
 }
 
 void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state)
 {
-    if(isSessionExists(session_hash)) {
-        std::lock_guard<std::mutex> lock_guard(_cache_mutex);
+    if(isSessionExists(session_hash))
+    {
+        std::lock_guard lock_guard(_cache_mutex);
         _session_cache[session_hash]->current_state = new_state;
         _session_cache[session_hash]->last_active_time = std::chrono::steady_clock::now();
     }
@@ -110,13 +96,13 @@ void SessionTable::updateSession(const uint32_t session_hash, const TcpState& ne
 
 void SessionTable::printSessionCache()
 {
-    std::lock_guard<std::mutex> lock_guard(_cache_mutex); // Ensure thread safety during access
+    std::lock_guard lock_guard(_cache_mutex); // Ensure thread safety during access
     // Print the header
     std::cout << std::setw(15) << "State"
               << std::setw(20) << "Destination IP"
-              << std::setw(15) << "Ports" << std::endl;
-              //<< std::setw(30) << "Last Active Time" << std::endl;
-    std::cout << std::string(50, '-') << std::endl;
+              << std::setw(15) << "Ports"
+              << std::setw(30) << "Last Active Time" << std::endl;
+    std::cout << std::string(80, '-') << std::endl;
 
     // Iterate through the session cache
     for (const auto& pair : _session_cache) {
@@ -131,9 +117,7 @@ void SessionTable::printSessionCache()
             case FIN_WAIT1:     state = "FIN_WAIT1"; break;
             case FIN_WAIT2:     state = "FIN_WAIT2"; break;
             case CLOSE_WAIT:    state = "CLOSE_WAIT"; break;
-            case CLOSING:       state = "CLOSING"; break;
             case TIME_WAIT:     state = "TIME_WAIT"; break;
-            case LAST_ACK:      state = "LAST_ACK"; break;
             default:            state = "UNKNOWN"; break;
         }
 
@@ -144,7 +128,7 @@ void SessionTable::printSessionCache()
         std::time_t last_active_time_t = std::chrono::system_clock::to_time_t(now_system_time);
 
         // Format time to HH:MM:SS
-        std::tm* tm_info = std::localtime(&last_active_time_t);
+        const std::tm* tm_info = std::localtime(&last_active_time_t);
         std::array<char,9> time_buffer; // HH:MM:SS requires 8 characters + null terminator
         std::strftime(time_buffer.data(), sizeof(time_buffer), "%H:%M:%S", tm_info);
         std::string port_info = std::to_string(session->source_port) + " -> " + std::to_string(session->dst_port);

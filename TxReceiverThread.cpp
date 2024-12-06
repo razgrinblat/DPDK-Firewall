@@ -27,20 +27,28 @@ void TxReceiverThread::processReceivedPackets(std::array<pcpp::MBufRawPacket*,MA
 void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
 {
     pcpp::Packet parsed_packet(raw_packet);
-    pcpp::MacAddress dest_mac = parsed_packet.getLayerOfType<pcpp::EthLayer>()->getDestMac();
-    if(dest_mac == DPDK_DEVICE2_MAC_ADDRESS || dest_mac == BROADCAST_MAC_ADDRESS)
+    auto eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
+    if(eth_layer && (eth_layer->getDestMac() == DPDK_DEVICE2_MAC_ADDRESS || eth_layer->getDestMac() == BROADCAST_MAC_ADDRESS))
     {
         _packet_stats.consumePacket(parsed_packet);
-        if(parsed_packet.isPacketOfType(pcpp::ARP)) {
+        if(parsed_packet.isPacketOfType(pcpp::ARP))
+        {
             const pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
             _arp_handler.handleReceivedArpPacket(*arp_layer);
         }
-        else {
+        else
+        {
             if (parsed_packet.isPacketOfType(pcpp::TCP))
             {
-                _session_handler.processInternetTcpPacket(&parsed_packet);
+                if (_session_handler.processInternetTcpPacket(&parsed_packet))
+                {
+                    _packets_to_client.push_back(raw_packet);
+                }
             }
-            _packets_to_client.push_back(raw_packet);
+            else
+            {
+                _packets_to_client.push_back(raw_packet);
+            }
         }
     }
 }

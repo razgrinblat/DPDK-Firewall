@@ -19,7 +19,6 @@ private:
     TcpSessionHandler();
     std::unique_ptr<TcpSession> initTcpSession(const pcpp::Packet& tcp_packet, uint32_t seq_number, uint32_t ack_number);
     void sendRstToClient(const pcpp::Packet& tcp_packet);
-
     pcpp::tcphdr *extractTcpHeader(const pcpp::Packet &tcp_packet);
 
 public:
@@ -28,8 +27,7 @@ public:
     TcpSessionHandler& operator=(const TcpSessionHandler&) = delete;
     static TcpSessionHandler& getInstance();
 
-    void processClientTcpPacket(pcpp::Packet* tcp_packet);
-    void processInternetTcpPacket(pcpp::Packet* tcp_packet);
+    bool processClientTcpPacket(pcpp::Packet* tcp_packet);
+    bool processInternetTcpPacket(pcpp::Packet* tcp_packet);
 
 };
-

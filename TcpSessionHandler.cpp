@@ -24,14 +24,14 @@ std::unique_ptr<TcpSession> TcpSessionHandler::initTcpSession(const pcpp::Packet
 
 void TcpSessionHandler::sendRstToClient(const pcpp::Packet &tcp_packet)
 {
-    pcpp::EthLayer* eth_layer = tcp_packet.getLayerOfType<pcpp::EthLayer>();
-    pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
-    pcpp::TcpLayer* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
+    const pcpp::EthLayer* eth_layer = tcp_packet.getLayerOfType<pcpp::EthLayer>();
+    const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
+    const pcpp::TcpLayer* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
 
     pcpp::Packet rst_packet(100);
 
-    pcpp::MacAddress dst_mac = eth_layer->getSourceMac(); // Destination MAC becomes source MAC
-    pcpp::MacAddress src_mac = eth_layer->getDestMac(); // source MAC becomes Destination MAC
+    const pcpp::MacAddress dst_mac = eth_layer->getSourceMac(); // Destination MAC becomes source MAC
+    const pcpp::MacAddress src_mac = eth_layer->getDestMac(); // source MAC becomes Destination MAC
     pcpp::EthLayer new_eth_layer(src_mac,dst_mac,PCPP_ETHERTYPE_IP);
     rst_packet.addLayer(&new_eth_layer);
 
@@ -66,7 +66,7 @@ pcpp::tcphdr *TcpSessionHandler::extractTcpHeader(const pcpp::Packet &tcp_packet
 }
 
 TcpSessionHandler::~TcpSessionHandler() {
-    
+
 }
 
 TcpSessionHandler & TcpSessionHandler::getInstance()
@@ -75,7 +75,7 @@ TcpSessionHandler & TcpSessionHandler::getInstance()
     return instance;
 }
 
-void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
+bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
 {
     //TODO: apply ip and port filter here - if(allow) open session else- close the session
     const uint32_t tcp_hash = hash5Tuple(tcp_packet,false);
@@ -101,10 +101,6 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
             else if (current_state == FIN_WAIT2 && tcp_header->ackFlag) {
                 _session_table.updateSession(tcp_hash,TIME_WAIT);
             }
-            //handle retransmissions connections
-            else if (current_state == SYN_SENT && tcp_header->synFlag) {
-                _session_table.updateSession(tcp_hash,SYN_SENT);
-            }
             //handle PASSIVE CLOSE from the client
             else if (current_state == FIN_WAIT1 && tcp_header->ackFlag && !tcp_header->finFlag) {
                 _session_table.updateSession(tcp_hash,CLOSE_WAIT);
@@ -115,7 +111,10 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
             else if (current_state == FIN_WAIT1 && tcp_header->ackFlag && tcp_header->finFlag) {
                 _session_table.updateSession(tcp_hash,FIN_WAIT2);
             }
-            //dup ack's
+            //handle retransmissions connections
+            else if (current_state == SYN_SENT && tcp_header->synFlag) {
+                _session_table.updateSession(tcp_hash,SYN_SENT);
+            }
             else if (current_state == TIME_WAIT && tcp_header->ackFlag) {
                 //dup ack
             }
@@ -123,7 +122,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
                 //dup ack
             }
             else {
-                 std::cout << "Unexpected TCP packet from Client- " << current_state << std::endl;
+                return false;
             }
         }
         else //open a new session
@@ -135,23 +134,15 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
             else if (tcp_header->rstFlag) {
                 _session_table.updateSession(tcp_hash,TIME_WAIT);
             }
-            // else {
-            //     if(tcp_header->ackFlag) {
-            //         auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
-            //         _session_table.addNewSession(tcp_hash,std::move(new_session), ESTABLISHED);
-            //     }
-            //     if(tcp_header->finFlag) {
-            //         auto new_session = initTcpSession(*tcp_packet,tcp_header->sequenceNumber,tcp_header->ackNumber);
-            //         _session_table.addNewSession(tcp_hash,std::move(new_session), FIN_WAIT1);
-            //     }
             else {
-                  std::cout << "Unexpected TCP packet from Client 2" << std::endl;
+                return false;
             }
         }
     }
+    return true;
 }
 
-void TcpSessionHandler::processInternetTcpPacket(pcpp::Packet *tcp_packet)
+bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet *tcp_packet)
 {
     const uint32_t tcp_hash = hash5Tuple(tcp_packet,false);
 
@@ -198,6 +189,8 @@ void TcpSessionHandler::processInternetTcpPacket(pcpp::Packet *tcp_packet)
         }
         else {
             std::cout << "Unexpected TCP packet from Internet - " << current_state << std::endl;
+            return false; // block the packet
         }
     }
+    return true;
 }

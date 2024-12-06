@@ -3,7 +3,6 @@
 #include <DpdkDevice.h>
 #include "QueuesManager.hpp"
 #include "Config.hpp"
-#include "ArpHandler.hpp"
 
 class RxReceiverThread : public pcpp::DpdkWorkerThread
 {
@@ -11,6 +10,8 @@ private:
     pcpp::DpdkDevice* _rx_device1;
     bool _stop;
     uint32_t _coreId;
+    QueuesManager& _queues_manager;
+
 
 public:
     RxReceiverThread(pcpp::DpdkDevice* rx_device);
