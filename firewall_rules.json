@@ -1,0 +1,8 @@
+{
+  "rules" : [
+    {"action" : "block", "dst_ip" : "192.168.1.30", "dst_port" : 80, "is_active" : true},
+    {"action" : "block", "dst_ip" : "192.168.12.30", "dst_port" : 80, "is_active" : true},
+    {"action" : "block", "dst_ip" : "192.168.134.30", "dst_port" : 80, "is_active" : true}
+
+  ]
+}

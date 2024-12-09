@@ -18,7 +18,6 @@ private:
 
     TcpSessionHandler();
     std::unique_ptr<TcpSession> initTcpSession(const pcpp::Packet& tcp_packet, uint32_t seq_number, uint32_t ack_number);
-    void sendRstToClient(const pcpp::Packet& tcp_packet);
     pcpp::tcphdr *extractTcpHeader(const pcpp::Packet &tcp_packet);
 
 public:

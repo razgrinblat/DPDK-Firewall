@@ -3,7 +3,7 @@
 TcpSessionHandler::TcpSessionHandler(): _session_table(SessionTable::getInstance()) {
 }
 
-std::unique_ptr<TcpSession> TcpSessionHandler::initTcpSession(const pcpp::Packet &tcp_packet, uint32_t seq_number, uint32_t ack_number)
+std::unique_ptr<TcpSession> TcpSessionHandler::initTcpSession(const pcpp::Packet &tcp_packet, const uint32_t seq_number, const uint32_t ack_number)
 {
     const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
     const pcpp::TcpLayer* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
@@ -20,40 +20,6 @@ std::unique_ptr<TcpSession> TcpSessionHandler::initTcpSession(const pcpp::Packet
     session->current_seq = seq_number;
     session->current_state = UNKNOWN;
     return session;
-}
-
-void TcpSessionHandler::sendRstToClient(const pcpp::Packet &tcp_packet)
-{
-    const pcpp::EthLayer* eth_layer = tcp_packet.getLayerOfType<pcpp::EthLayer>();
-    const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
-    const pcpp::TcpLayer* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
-
-    pcpp::Packet rst_packet(100);
-
-    const pcpp::MacAddress dst_mac = eth_layer->getSourceMac(); // Destination MAC becomes source MAC
-    const pcpp::MacAddress src_mac = eth_layer->getDestMac(); // source MAC becomes Destination MAC
-    pcpp::EthLayer new_eth_layer(src_mac,dst_mac,PCPP_ETHERTYPE_IP);
-    rst_packet.addLayer(&new_eth_layer);
-
-    pcpp::IPv4Layer new_ip_layer(ipv4_layer->getDstIPv4Address(),ipv4_layer->getSrcIPv4Address());
-    new_ip_layer.getIPv4Header()->timeToLive = 64;
-    rst_packet.addLayer(&new_ip_layer);
-
-    pcpp::TcpLayer new_tcp_layer(tcp_layer->getDstPort(),tcp_layer->getSrcPort());
-    new_tcp_layer.getTcpHeader()->rstFlag = 1;  // Set RST flag
-    new_tcp_layer.getTcpHeader()->ackFlag = 1;  // Acknowledge the last packet
-    new_tcp_layer.getTcpHeader()->sequenceNumber = tcp_layer->getTcpHeader()->ackNumber; // Use the acknowledgment number as the sequence number
-    new_tcp_layer.getTcpHeader()->ackNumber = tcp_layer->getTcpHeader()->sequenceNumber + 1; // Acknowledge the received packet
-    rst_packet.addLayer(&new_tcp_layer);
-
-    rst_packet.computeCalculateFields();
-    const auto device  = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_1);
-    if(!device->sendPacket(rst_packet)) {
-        std::cerr << "Failed to send RST packet" << std::endl;
-    }
-    else {
-        std::cout << "RST packet sent successfully" << std::endl;
-    }
 }
 
 pcpp::tcphdr *TcpSessionHandler::extractTcpHeader(const pcpp::Packet &tcp_packet)
@@ -122,6 +88,7 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
                 //dup ack
             }
             else {
+                std::cout << "test" << std::endl;
                 return false;
             }
         }

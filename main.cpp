@@ -1,6 +1,5 @@
 #include "PacketSniffer.hpp"
 
-
 int main()
 {
     PacketSniffer firewall;

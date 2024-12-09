@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # Include DPDK headers
 include_directories(/usr/local/include/)  # Adjust for DPDK headers
 include_directories(/usr/local/include/pcapplusplus)    # PcapPlusPlus headers
-
+include_directories(/usr/local/include/jsoncpp)   #Json header path
 
 # Link DPDK libraries from /usr/local/lib/x86_64-linux-gnu
 link_directories(/usr/local/lib/x86_64-linux-gnu)
@@ -40,11 +40,12 @@ set(DPDK_LIBRARIES
 # System libraries
 set(SYSTEM_LIBRARIES
         pcap                        # Required by PcapPlusPlus
-        pthread                      # DPDK needs pthread
+        pthread                     # DPDK needs pthread
         m                           # Math library for DPDK
         dl                          # Dynamic linking library for DPDK
         rt                          # Real-time library for DPDK
         numa                        # NUMA support for DPDK
+        jsoncpp                     # Jsoncpp library
 )
 
 # Add the executable
@@ -70,6 +71,8 @@ add_executable(my_firewall main.cpp
         SessionTable.hpp
         TcpSessionHandler.cpp
         TcpSessionHandler.hpp
+        RulesParser.cpp
+        RulesParser.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly
