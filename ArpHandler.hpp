@@ -25,11 +25,12 @@ private:
     std::vector<std::thread> _threads; //thread pool
 
     ArpHandler();
+    void stopThreads();
     void sendArpResponse(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac,
                          const pcpp::IPv4Address& requester_ip, const pcpp::MacAddress& requester_mac, uint16_t device_id);
     bool isRequestAlreadyPending(const pcpp::IPv4Address& target_ip);
     void threadHandler(const pcpp::IPv4Address& target_ip); //thread handler for sending ARP requests
-    bool sendArpRequestPacket(pcpp::DpdkDevice* device, const pcpp::IPv4Address& target_ip);
+    bool sendArpRequestPacket(const pcpp::IPv4Address& target_ip);
     void removePendingRequest(const pcpp::IPv4Address& target_ip);
 
 public:
@@ -39,7 +40,6 @@ public:
     ArpHandler& operator=(const ArpHandler&) = delete;
     static ArpHandler& getInstance();
 
-    void stopThreads();
     void handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer); //handle Received ARP Requests in TxReceivedThread
     void handleReceivedArpResponse(const pcpp::ArpLayer& arp_layer); //handle Received ARP Responses in TxReceivedThread
     void handleReceivedArpPacket(const pcpp::ArpLayer& arp_layer);

@@ -28,7 +28,7 @@ void RulesParser::validateRule(const Json::Value& rule)
         throw std::invalid_argument("Field 'port' must be an integer");
     }
     const int port = rule["dst_port"].asInt();
-    if (port < 1 || port > 65535)
+    if (port < 1 || port > Config::MAX_PORT_NUMBER)
     {
         throw std::invalid_argument("Field 'port' must be a valid port number (1-65535), got: " + std::to_string(port));
     }
@@ -77,6 +77,5 @@ void RulesParser::loadRules()
     catch (const std::exception& e)
     {
         std::cerr << e.what() << std::endl;
-        throw;
     }
 }

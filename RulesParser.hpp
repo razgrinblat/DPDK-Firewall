@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <IpAddress.h>
+#include "Config.hpp"
 class RulesParser
 {
 private:

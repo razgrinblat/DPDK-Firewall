@@ -6,6 +6,7 @@ ArpHandler::ArpHandler():_stop_flag(false)
 
 ArpHandler::~ArpHandler()
 {
+    stopThreads();
     _cache.clear();
     _unresolved_arp_requests.clear();
 }
@@ -34,12 +35,11 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
     if (existingEntry != _cache.end() && existingEntry->second != arp_layer.getSenderMacAddress().toString())
     {
          //if there is a different arp entry to this specific ip
-        std::cout << "[WARNING] Potential ARP spoofing detected: "
-                  << "IP " << arp_layer.getSenderIpAddr().toString()
-                  << " was previously associated with MAC "
-                  << existingEntry->second << " but now has MAC "
-                  << arp_layer.getSenderMacAddress().toString() << std::endl;
-        return;
+        throw std::invalid_argument("[WARNING] Potential ARP spoofing detected: "
+                  "IP " + arp_layer.getSenderIpAddr().toString()
+                  + " was previously associated with MAC "
+                  + existingEntry->second + " but now has MAC "
+                  + arp_layer.getSenderMacAddress().toString());
     }
     {
         std::lock_guard lock_guard(_cache_mutex);
@@ -61,9 +61,9 @@ void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
     }
     else
     {
-        std::cout << "[WARNING] Potential ARP spoofing detected: "
-                      << "IP " << sender_ip
-                      << " was sent a response that not requested!" << std::endl;
+       throw std::invalid_argument("[WARNING] Potential ARP spoofing detected: "
+                      "IP " + sender_ip
+                      + " was sent a response that not requested!");
     }
 }
 
@@ -72,11 +72,17 @@ void ArpHandler::handleReceivedArpPacket(const pcpp::ArpLayer &arp_layer)
     if (arp_layer.getTargetIpAddr() == Config::DPDK_DEVICE2_IP)
     {
         const int opcode = arp_layer.getArpHeader()->opcode;
-        if(opcode == Config::ARP_REQUEST_OPCODE) { //Arp request
-            handleReceivedArpRequest(arp_layer);
-        }
-        else { //Arp response
-            handleReceivedArpResponse(arp_layer);
+        try
+        {
+            if(opcode == Config::ARP_REQUEST_OPCODE) { //Arp request
+                handleReceivedArpRequest(arp_layer);
+            }
+            else { //Arp response
+                handleReceivedArpResponse(arp_layer);
+            }
+        }catch (const std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
         }
     }
 }
@@ -121,7 +127,7 @@ void ArpHandler::sendArpResponse(const pcpp::IPv4Address &target_ip, const pcpp:
     PacketStats& packet_stats = PacketStats::getInstance();
     pcpp::EthLayer eth_layer(requester_mac,target_mac,PCPP_ETHERTYPE_ARP);
     pcpp::ArpLayer arp_layer(pcpp::ARP_REPLY,requester_mac,target_mac,requester_ip,target_ip);
-    pcpp::Packet arp_response_packet(100);
+    pcpp::Packet arp_response_packet(Config::DEFAULT_PACKET_SIZE);
     arp_response_packet.addLayer(&eth_layer);
     arp_response_packet.addLayer(&arp_layer);
     arp_response_packet.computeCalculateFields();
@@ -154,13 +160,12 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address &target_ip)
 {
     int attempts = 0;               // Current attempt count
     const std::string target_ip_str = target_ip.toString();
-    const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_2);
 
     // Loop to retry ARP requests
     while (attempts < Config::MAX_RETRIES && !_stop_flag.load())
     {
         // Create and send ARP request packet
-        if (!sendArpRequestPacket(device,target_ip))
+        if (!sendArpRequestPacket(target_ip))
         {
             std::cerr << "Error: Couldn't send the ARP request." << std::endl;
         }
@@ -177,17 +182,18 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address &target_ip)
     removePendingRequest(target_ip); //remove the ARP from the pending_arp_list if resolved
 }
 
-bool ArpHandler::sendArpRequestPacket(pcpp::DpdkDevice* device, const pcpp::IPv4Address& target_ip)
+bool ArpHandler::sendArpRequestPacket(const pcpp::IPv4Address& target_ip)
 {
     // Create and send ARP request packet
     pcpp::EthLayer ethLayer(Config::DPDK_DEVICE2_MAC_ADDRESS, Config::BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
     pcpp::ArpLayer arpLayer(pcpp::ARP_REQUEST, Config::DPDK_DEVICE2_MAC_ADDRESS,
         pcpp::MacAddress::Zero, Config::DPDK_DEVICE2_IP, target_ip);
-    pcpp::Packet arp_request_packet(100);
+    pcpp::Packet arp_request_packet(Config::DEFAULT_PACKET_SIZE);
     arp_request_packet.addLayer(&ethLayer);
     arp_request_packet.addLayer(&arpLayer);
     arp_request_packet.computeCalculateFields();
 
+    const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_2);
     if (device->sendPacket(arp_request_packet))
     {
         PacketStats::getInstance().consumePacket(arp_request_packet);

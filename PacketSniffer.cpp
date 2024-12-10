@@ -1,7 +1,5 @@
 #include "PacketSniffer.hpp"
 
-bool PacketSniffer::_keep_running;
-
 void PacketSniffer::openDpdkDevices()
 {
     pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterruptedCallBack, this);
@@ -40,11 +38,8 @@ void PacketSniffer::onApplicationInterruptedCallBack(void* cookie)
 {
     auto* sniffer = static_cast<PacketSniffer*>(cookie);
 
-    _keep_running = false;
+    sniffer->_keep_running = false;
     std::cout << std::endl << "Shutting down..." << std::endl;
-    ArpHandler::getInstance().stopThreads();
-    pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
-    sniffer->closeDevices();
 }
 
 void PacketSniffer::startingCapture()
@@ -74,8 +69,6 @@ void PacketSniffer::startingCapture()
         }
         else if(user_input == "exit") {
             _keep_running = false;
-            ArpHandler::getInstance().stopThreads();
-            pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
         }
         else {
             std::cout << "Invalid input. Please try again.\n";
@@ -117,10 +110,8 @@ void PacketSniffer::closeDevices()
     }
 }
 
-
-PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr)
+PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true)
 {
-    _keep_running = true;
     try {
         openDpdkDevices();
         printDeviceInfo();
@@ -133,6 +124,7 @@ PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr)
 
 PacketSniffer::~PacketSniffer()
 {
+    pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
     for (const auto* thread : _workers_threads) {
         delete thread;
     }

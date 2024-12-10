@@ -20,7 +20,7 @@ private:
     pcpp::DpdkDevice* _device1;
     pcpp::DpdkDevice* _device2;
     std::vector<pcpp::DpdkWorkerThread*> _workers_threads;
-    static bool _keep_running;
+    bool _keep_running;
 
     void openDpdkDevices();
 

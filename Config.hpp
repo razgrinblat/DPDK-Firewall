@@ -10,6 +10,8 @@ public:
     static constexpr auto MBUF_POOL_SIZE = 16383; // (2^14 - 1)
     static constexpr auto DPDK_DEVICE_1 = 0;
     static constexpr auto DPDK_DEVICE_2 = 1;
+    static constexpr auto DEFAULT_PACKET_SIZE = 100; // in bytes
+    static constexpr auto MAX_PORT_NUMBER = 65535;
 
     //ARP CONFIGURATION
     static constexpr auto ARP_REQUEST_OPCODE = 256;
