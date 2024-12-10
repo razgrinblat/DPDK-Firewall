@@ -7,18 +7,18 @@ void PacketSniffer::openDpdkDevices()
     pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterruptedCallBack, this);
 
     const pcpp::CoreMask core_mask_to_use = pcpp::getCoreMaskForAllMachineCores();
-    pcpp::DpdkDeviceList::initDpdk(core_mask_to_use,MBUF_POOL_SIZE);
+    pcpp::DpdkDeviceList::initDpdk(core_mask_to_use,Config::MBUF_POOL_SIZE);
 
-    _device1 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_1);
-    _device2 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_2);
+    _device1 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_1);
+    _device2 = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_2);
 
     if(_device1 == nullptr || !_device1->open())
     {
-        throw std::runtime_error("Cannot find device with port '" + std::to_string(DPDK_DEVICE_1) + "'\n");
+        throw std::runtime_error("Cannot find device with port '" + std::to_string(Config::DPDK_DEVICE_1) + "'\n");
     }
     if(_device2 == nullptr || !_device2->open())
     {
-        throw std::runtime_error("Cannot find device with port '" + std::to_string(DPDK_DEVICE_2) + "'\n");
+        throw std::runtime_error("Cannot find device with port '" + std::to_string(Config::DPDK_DEVICE_2) + "'\n");
     }
 }
 
@@ -92,7 +92,7 @@ void PacketSniffer::startingDpdkThreads()
     _workers_threads.emplace_back(new TxSenderThread(_device1));
 
     int workersCoreMask = 0;
-    for (int i = 1; i <= CORES_TO_USE; i++)
+    for (int i = 1; i <= Config::CORES_TO_USE; i++)
     {
         workersCoreMask = workersCoreMask | (1 << i);
     }

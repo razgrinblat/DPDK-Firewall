@@ -14,9 +14,9 @@ void TxReceiverThread::pushToTxQueue()
     }
 }
 
-void TxReceiverThread::processReceivedPackets(std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST>& mbuf_array)
+void TxReceiverThread::processReceivedPackets(std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST>& mbuf_array)
 {
-    const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
+    const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),Config::MAX_RECEIVE_BURST,0);
     _packets_to_client.clear();
     for (int i = 0; i < num_of_packets; ++i)
     {
@@ -28,7 +28,7 @@ void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
 {
     pcpp::Packet parsed_packet(raw_packet);
     auto eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
-    if(eth_layer && (eth_layer->getDestMac() == DPDK_DEVICE2_MAC_ADDRESS || eth_layer->getDestMac() == BROADCAST_MAC_ADDRESS))
+    if(eth_layer && (eth_layer->getDestMac() == Config::DPDK_DEVICE2_MAC_ADDRESS || eth_layer->getDestMac() == Config::BROADCAST_MAC_ADDRESS))
     {
         _packet_stats.consumePacket(parsed_packet);
         if(parsed_packet.isPacketOfType(pcpp::ARP))
@@ -64,8 +64,8 @@ bool TxReceiverThread::run(uint32_t coreId)
     _coreId = coreId;
     _stop = false;
 
-    std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
-    _packets_to_client.reserve(MAX_RECEIVE_BURST);
+    std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST> mbuf_array= {};
+    _packets_to_client.reserve(Config::MAX_RECEIVE_BURST);
 
     while (!_stop)
     {

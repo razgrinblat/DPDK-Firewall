@@ -21,7 +21,7 @@ private:
     TcpSessionHandler& _session_handler;
 
     void pushToTxQueue();
-    void processReceivedPackets(std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST>& mbuf_array);
+    void processReceivedPackets(std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST>& mbuf_array);
     void processSinglePacket(pcpp::MBufRawPacket* raw_packet);
 
 public:

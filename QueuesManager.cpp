@@ -1,9 +1,8 @@
 #include "QueuesManager.hpp"
 
-QueuesManager::QueuesManager()
+QueuesManager::QueuesManager() : _rx_queue(std::make_shared<std::queue<pcpp::MBufRawPacket*>>()),
+_tx_queue(std::make_shared<std::queue<pcpp::MBufRawPacket*>>())
 {
-    _rx_queue = std::make_shared<std::queue<pcpp::MBufRawPacket*>>();
-    _tx_queue = std::make_shared<std::queue<pcpp::MBufRawPacket*>>();
 }
 
 QueuesManager & QueuesManager::getInstance()

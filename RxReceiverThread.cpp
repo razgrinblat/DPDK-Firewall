@@ -10,11 +10,11 @@ bool RxReceiverThread::run(uint32_t coreId)
 {
     _coreId = coreId;
     _stop = false;
-    std::array<pcpp::MBufRawPacket*,MAX_RECEIVE_BURST> mbuf_array= {};
+    std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST> mbuf_array= {};
     const auto rx_queue = _queues_manager.getRxQueue();
     while (!_stop)
     {
-        const uint32_t num_of_packets = _rx_device1->receivePackets(mbuf_array.data(),MAX_RECEIVE_BURST,0);
+        const uint32_t num_of_packets = _rx_device1->receivePackets(mbuf_array.data(),Config::MAX_RECEIVE_BURST,0);
         if (num_of_packets > 0)
         {
             {

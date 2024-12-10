@@ -1,6 +1,6 @@
 #include "SessionTable.hpp"
 
-SessionTable::SessionTable(): _lru_list(MAX_SESSIONS),_stop_flag(false)
+SessionTable::SessionTable(): _lru_list(Config::MAX_SESSIONS),_stop_flag(false)
 {
     _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
@@ -13,7 +13,7 @@ void SessionTable::cleanUpIdleSessions()
     {
         const std::unique_ptr<TcpSession>& session = it->second;
         const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
-        if(session->current_state == TIME_WAIT || (time_diff >= MAX_IDLE_SESSION_TIME && session->current_state != ESTABLISHED))
+        if(session->current_state == TIME_WAIT || (time_diff >= Config::MAX_IDLE_SESSION_TIME && session->current_state != ESTABLISHED))
         {
             _lru_list.eraseElement(it->first);
             it = _session_cache.erase(it);
@@ -43,7 +43,7 @@ void SessionTable::runCleanUpThread()
 {
     while (!_stop_flag.load())
     {
-        std::this_thread::sleep_for(std::chrono::seconds(CLEANUP_IDLE_SESSIONS_TIME));
+        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_IDLE_SESSIONS_TIME));
         cleanUpIdleSessions();
     }
 }

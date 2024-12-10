@@ -45,7 +45,7 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
         std::lock_guard lock_guard(_cache_mutex);
         _cache[arp_layer.getSenderIpAddr().toString()] = arp_layer.getSenderMacAddress().toString(); //update or add the ARP cache
     }
-    sendArpResponse(arp_layer.getSenderIpAddr(),arp_layer.getSenderMacAddress(),DPDK_DEVICE2_IP,DPDK_DEVICE2_MAC_ADDRESS,DPDK_DEVICE_2);
+    sendArpResponse(arp_layer.getSenderIpAddr(),arp_layer.getSenderMacAddress(),Config::DPDK_DEVICE2_IP,Config::DPDK_DEVICE2_MAC_ADDRESS,Config::DPDK_DEVICE_2);
 }
 
 void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
@@ -69,10 +69,10 @@ void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
 
 void ArpHandler::handleReceivedArpPacket(const pcpp::ArpLayer &arp_layer)
 {
-    if (arp_layer.getTargetIpAddr() == DPDK_DEVICE2_IP)
+    if (arp_layer.getTargetIpAddr() == Config::DPDK_DEVICE2_IP)
     {
         const int opcode = arp_layer.getArpHeader()->opcode;
-        if(opcode == ARP_REQUEST_OPCODE) { //Arp request
+        if(opcode == Config::ARP_REQUEST_OPCODE) { //Arp request
             handleReceivedArpRequest(arp_layer);
         }
         else { //Arp response
@@ -154,10 +154,10 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address &target_ip)
 {
     int attempts = 0;               // Current attempt count
     const std::string target_ip_str = target_ip.toString();
-    const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(DPDK_DEVICE_2);
+    const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_2);
 
     // Loop to retry ARP requests
-    while (attempts < MAX_RETRIES && !_stop_flag.load())
+    while (attempts < Config::MAX_RETRIES && !_stop_flag.load())
     {
         // Create and send ARP request packet
         if (!sendArpRequestPacket(device,target_ip))
@@ -166,7 +166,7 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address &target_ip)
         }
         // Wait for a response or timeout
         std::unique_lock lock(_cache_mutex);
-        if (_arp_response_received.wait_for(lock, std::chrono::milliseconds(SLEEP_DURATION), [&]() {
+        if (_arp_response_received.wait_for(lock, std::chrono::milliseconds(Config::SLEEP_DURATION), [&]() {
                 return _cache.find(target_ip_str) != _cache.end();
             })) {
             // ARP response received; exit the thread
@@ -180,8 +180,9 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address &target_ip)
 bool ArpHandler::sendArpRequestPacket(pcpp::DpdkDevice* device, const pcpp::IPv4Address& target_ip)
 {
     // Create and send ARP request packet
-    pcpp::EthLayer ethLayer(DPDK_DEVICE2_MAC_ADDRESS, BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
-    pcpp::ArpLayer arpLayer(pcpp::ARP_REQUEST, DPDK_DEVICE2_MAC_ADDRESS, pcpp::MacAddress::Zero, DPDK_DEVICE2_IP, target_ip);
+    pcpp::EthLayer ethLayer(Config::DPDK_DEVICE2_MAC_ADDRESS, Config::BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
+    pcpp::ArpLayer arpLayer(pcpp::ARP_REQUEST, Config::DPDK_DEVICE2_MAC_ADDRESS,
+        pcpp::MacAddress::Zero, Config::DPDK_DEVICE2_IP, target_ip);
     pcpp::Packet arp_request_packet(100);
     arp_request_packet.addLayer(&ethLayer);
     arp_request_packet.addLayer(&arpLayer);
