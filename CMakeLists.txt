@@ -73,6 +73,8 @@ add_executable(my_firewall main.cpp
         TcpSessionHandler.hpp
         RulesParser.cpp
         RulesParser.hpp
+        RuleTree.cpp
+        RuleTree.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly

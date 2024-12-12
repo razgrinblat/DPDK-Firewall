@@ -17,7 +17,7 @@ private:
     SessionTable& _session_table;
 
     TcpSessionHandler();
-    std::unique_ptr<TcpSession> initTcpSession(const pcpp::Packet& tcp_packet, uint32_t seq_number, uint32_t ack_number);
+    std::unique_ptr<SessionTable::TcpSession> initTcpSession(const pcpp::Packet& tcp_packet, uint32_t seq_number, uint32_t ack_number);
     pcpp::tcphdr *extractTcpHeader(const pcpp::Packet &tcp_packet);
 
 public:

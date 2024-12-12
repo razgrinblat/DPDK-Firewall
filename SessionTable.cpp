@@ -76,9 +76,10 @@ bool SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Tc
     return false;
 }
 
-TcpState& SessionTable::getCurrentState(const uint32_t session_hash)
+SessionTable::TcpState& SessionTable::getCurrentState(const uint32_t session_hash)
 {
-    if(isSessionExists(session_hash)) {
+    if(isSessionExists(session_hash))
+    {
         std::lock_guard lock_guard(_cache_mutex);
         return _session_cache[session_hash]->current_state;
     }

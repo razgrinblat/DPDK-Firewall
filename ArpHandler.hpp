@@ -26,8 +26,7 @@ private:
 
     ArpHandler();
     void stopThreads();
-    void sendArpResponse(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac,
-                         const pcpp::IPv4Address& requester_ip, const pcpp::MacAddress& requester_mac, uint16_t device_id);
+    void sendArpResponse(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac);
     bool isRequestAlreadyPending(const pcpp::IPv4Address& target_ip);
     void threadHandler(const pcpp::IPv4Address& target_ip); //thread handler for sending ARP requests
     bool sendArpRequestPacket(const pcpp::IPv4Address& target_ip);

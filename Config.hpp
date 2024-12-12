@@ -13,6 +13,9 @@ public:
     static constexpr auto DEFAULT_PACKET_SIZE = 100; // in bytes
     static constexpr auto MAX_PORT_NUMBER = 65535;
 
+    //RULES FILE PATH
+    static auto constexpr FILE_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/firewall_rules.json";
+
     //ARP CONFIGURATION
     static constexpr auto ARP_REQUEST_OPCODE = 256;
     static constexpr auto MAX_RETRIES = 3; // Maximum number of ARP request retries

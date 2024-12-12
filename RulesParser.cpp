@@ -1,9 +1,14 @@
 #include "RulesParser.hpp"
 
-RulesParser & RulesParser::getInstance()
+RulesParser & RulesParser::getInstance(const std::string& file_path)
 {
-    static RulesParser instance;
+    static RulesParser instance(file_path);
     return instance;
+}
+
+RulesParser::RulesParser(const std::string &file_path): _file_path(file_path)
+{
+    loadRules();
 }
 
 bool RulesParser::isValidIp(const std::string &ip)
@@ -17,6 +22,11 @@ void RulesParser::validateRule(const Json::Value& rule)
     if (action != "block" && action != "accept")
     {
         throw std::invalid_argument("Field 'action' must be 'block or 'accept'");
+    }
+    const std::string protocol = rule["protocol"].asString();
+    if (protocol != "tcp" && protocol != "udp")
+    {
+        throw std::invalid_argument("Field 'protocol must be 'tcp' or 'udp'");
     }
     const std::string dst_ip = rule["dst_ip"].asString();
     if (!isValidIp(dst_ip))
@@ -40,7 +50,7 @@ void RulesParser::validateRule(const Json::Value& rule)
 
 void RulesParser::openAndParseRulesFile()
 {
-    std::ifstream file(FILE_PATH);
+    std::ifstream file(_file_path);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open firewall_rules.json");
     }
@@ -60,12 +70,15 @@ void RulesParser::loadRules()
         {
             try {
                 validateRule(rule);
-                std::string action = rule["action"].asString();
-                std::string dst_ip = rule["dst_ip"].asString();
-                std::string dst_port = rule["dst_port"].asString();
-                bool is_active = rule["is_active"].asBool();
-
-                std::cout << action << " " << dst_ip << " " << dst_port << " " << (is_active ? "true" : "false") << std::endl;
+                if(rule["is_active"].asBool())
+                {
+                    _rules.emplace_back(std::make_unique<Rule>(
+                rule["action"].asString(),
+                rule["protocol"].asString(),
+                rule["dst_ip"].asString(),
+                rule["dst_port"].asInt()
+                ));
+                }
             }
             catch (const std::exception& e)
             {
@@ -78,4 +91,9 @@ void RulesParser::loadRules()
     {
         std::cerr << e.what() << std::endl;
     }
+}
+
+const std::vector<std::unique_ptr<RulesParser::Rule>> & RulesParser::getRules()
+{
+    return _rules;
 }
