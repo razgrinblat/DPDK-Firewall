@@ -11,13 +11,14 @@ class RulesParser
 public:
     struct Rule
     {
-        std::string action;
+
         std::string protocol;
         std::string dst_ip;
         int dst_port;
+        std::string action;
 
-        Rule(const std::string& action, const std::string& protocol, const std::string& dst_ip, const int dst_port)
-          : action(action),protocol(protocol), dst_ip(dst_ip), dst_port(dst_port){}
+        Rule(const std::string& protocol, const std::string& dst_ip, const int dst_port, const std::string& action)
+          : protocol(protocol), dst_ip(dst_ip), dst_port(dst_port), action(action){}
     };
 
     ~RulesParser() = default;
@@ -25,7 +26,7 @@ public:
     RulesParser& operator=(const RulesParser&) = delete;
     static RulesParser& getInstance(const std::string& file_path);
 
-    const std::vector<std::unique_ptr<Rule>>& getRules();
+    std::vector<std::unique_ptr<Rule>> getRules();
 
 private:
 
@@ -38,6 +39,5 @@ private:
     void validateRule(const Json::Value& rule);
     void openAndParseRulesFile();
     void loadRules();
-
 
 };

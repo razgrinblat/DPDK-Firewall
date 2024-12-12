@@ -3,6 +3,10 @@
 #include <DpdkDevice.h>
 #include "QueuesManager.hpp"
 #include "Config.hpp"
+#include "RuleTree.hpp"
+#include <IPv4Layer.h>
+#include <UdpLayer.h>
+#include <TcpLayer.h>
 
 class RxReceiverThread : public pcpp::DpdkWorkerThread
 {
@@ -11,6 +15,9 @@ private:
     bool _stop;
     uint32_t _coreId;
     QueuesManager& _queues_manager;
+    RuleTree& _rule_tree;
+
+    bool forwardPacket(const pcpp::Packet& parsed_packet);
 
 
 public:

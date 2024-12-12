@@ -94,7 +94,7 @@ bool RxSenderThread::run(uint32_t coreId)
 
                 if(parsed_packet.isPacketOfType(pcpp::TCP) && !_session_handler.processClientTcpPacket(&parsed_packet))
                 {
-                    continue; // continue if the packet in unknown
+                    continue; // continue if the packet is unknown
                 }
                 mbuf_array[packets_to_send++] = raw_packet;
             }

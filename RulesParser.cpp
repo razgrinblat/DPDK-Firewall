@@ -73,10 +73,11 @@ void RulesParser::loadRules()
                 if(rule["is_active"].asBool())
                 {
                     _rules.emplace_back(std::make_unique<Rule>(
-                rule["action"].asString(),
+
                 rule["protocol"].asString(),
                 rule["dst_ip"].asString(),
-                rule["dst_port"].asInt()
+                rule["dst_port"].asInt(),
+                rule["action"].asString()
                 ));
                 }
             }
@@ -90,10 +91,11 @@ void RulesParser::loadRules()
     catch (const std::exception& e)
     {
         std::cerr << e.what() << std::endl;
+
     }
 }
 
-const std::vector<std::unique_ptr<RulesParser::Rule>> & RulesParser::getRules()
+std::vector<std::unique_ptr<RulesParser::Rule>> RulesParser::getRules()
 {
-    return _rules;
+    return std::move(_rules);
 }

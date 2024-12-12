@@ -13,7 +13,6 @@
 #include "TxReceiverThread.hpp"
 #include "TxSenderThread.hpp"
 
-
 class PacketSniffer
 {
 private:
@@ -21,6 +20,7 @@ private:
     pcpp::DpdkDevice* _device2;
     std::vector<pcpp::DpdkWorkerThread*> _workers_threads;
     bool _keep_running;
+    RuleTree& _rule_tree;
 
     void openDpdkDevices();
 

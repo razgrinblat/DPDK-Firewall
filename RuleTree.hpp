@@ -1,5 +1,4 @@
 #pragma once
-#include <memory>
 #include <Packet.h>
 #include <unordered_map>
 #include "RulesParser.hpp"
@@ -10,14 +9,13 @@ class RuleTree
 private:
     struct TreeNode
     {
-        std::unordered_map<std::string,std::unique_ptr<TreeNode>> children;
-        bool action; //True - accept, False - block
+        std::unordered_map<std::string,std::shared_ptr<TreeNode>> children;
+        std::string action; //True - accept, False - block
     };
 
-    std::unique_ptr<TreeNode> _root;
+    std::shared_ptr<TreeNode> _root;
 
     RuleTree();
-    void buildTree();
     void addRule(const std::unique_ptr<RulesParser::Rule>& rule);
 
 
@@ -27,6 +25,7 @@ public:
     RuleTree& operator=(const RuleTree&) = delete;
     static RuleTree& getInstance();
 
-    bool allowPacket(const pcpp::Packet& parsed_packet);
+    void buildTree();
+    bool allowPacket(const std::string& protocol, const std::string& ip, const std::string& port);
 
 };

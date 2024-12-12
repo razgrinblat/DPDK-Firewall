@@ -110,9 +110,10 @@ void PacketSniffer::closeDevices()
     }
 }
 
-PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true)
+PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true), _rule_tree(RuleTree::getInstance())
 {
     try {
+        _rule_tree.buildTree();
         openDpdkDevices();
         printDeviceInfo();
         startingDpdkThreads();
