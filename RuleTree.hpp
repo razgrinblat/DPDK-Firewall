@@ -16,7 +16,7 @@ private:
     std::shared_ptr<TreeNode> _root;
 
     RuleTree();
-    void addRule(const std::unique_ptr<RulesParser::Rule>& rule);
+    void addRule(std::unique_ptr<RulesParser::Rule> rule);
 
 
 public:

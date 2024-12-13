@@ -21,13 +21,20 @@ public:
     struct TcpSession
     {
         TcpState current_state;
-        uint32_t current_ack;
-        uint32_t current_seq;
+
         pcpp::IPv4Address source_ip;
         pcpp::IPv4Address dst_ip;
         uint16_t source_port;
         uint16_t dst_port;
+        uint32_t current_ack;
+        uint32_t current_seq;
         std::chrono::time_point<std::chrono::steady_clock> last_active_time;
+
+        TcpSession(const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
+                   const uint16_t src_port, const uint16_t dst_port,
+                   const uint32_t seq, const uint32_t ack, const TcpState state)
+        : current_state(state), source_ip(src_ip), dst_ip(dst_ip), source_port(src_port),
+          dst_port(dst_port), current_ack(ack), current_seq(seq) {}
     };
 
     ~SessionTable();

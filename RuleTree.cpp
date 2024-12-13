@@ -7,14 +7,14 @@ RuleTree::RuleTree() : _root(std::make_shared<TreeNode>())
 void RuleTree::buildTree()
 {
     RulesParser& rules_parser = RulesParser::getInstance(Config::FILE_PATH);
-     for(const auto& rule : rules_parser.getRules())
+     for(auto& rule : rules_parser.getRules())
      {
          addRule(std::move(rule));
      }
     std::cout << "Rules Tree built Successfully" << std::endl;
 }
 
-void RuleTree::addRule(const std::unique_ptr<RulesParser::Rule>& rule)
+void RuleTree::addRule(const std::unique_ptr<RulesParser::Rule> rule)
 {
     auto current = _root;
     if(!current->children[rule->protocol])

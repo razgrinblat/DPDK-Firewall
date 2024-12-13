@@ -7,19 +7,15 @@ std::unique_ptr<SessionTable::TcpSession> TcpSessionHandler::initTcpSession(cons
 {
     const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
     const pcpp::TcpLayer* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
-    const pcpp::IPv4Address src_ip = ipv4_layer->getSrcIPv4Address();
-    const pcpp::IPv4Address dst_ip = ipv4_layer->getDstIPv4Address();
-    const uint16_t src_port = tcp_layer->getSrcPort();
-    const uint16_t dst_port = tcp_layer->getDstPort();
-    auto session = std::make_unique<SessionTable::TcpSession>();
-    session->dst_ip = dst_ip;
-    session->source_ip = src_ip;
-    session->dst_port = dst_port;
-    session->source_port = src_port;
-    session->current_ack = ack_number;
-    session->current_seq = seq_number;
-    session->current_state = SessionTable::UNKNOWN;
-    return session;
+    return std::make_unique<SessionTable::TcpSession>(
+       ipv4_layer->getSrcIPv4Address(),
+       ipv4_layer->getDstIPv4Address(),
+       tcp_layer->getSrcPort(),
+       tcp_layer->getDstPort(),
+       seq_number,
+       ack_number,
+       SessionTable::UNKNOWN
+   );
 }
 
 pcpp::tcphdr *TcpSessionHandler::extractTcpHeader(const pcpp::Packet& tcp_packet)
@@ -43,7 +39,6 @@ TcpSessionHandler & TcpSessionHandler::getInstance()
 
 bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet* tcp_packet)
 {
-    //TODO: apply ip and port filter here - if(allow) open session else- close the session
     const uint32_t tcp_hash = hash5Tuple(tcp_packet,false);
     if(tcp_hash != 0)
     {
