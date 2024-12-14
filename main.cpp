@@ -2,8 +2,14 @@
 
 int main()
 {
-    PacketSniffer firewall;
-    firewall.startingCapture();
+    try {
+        PacketSniffer firewall;
+        firewall.startingCapture();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    return 0;
+    return EXIT_SUCCESS;
 }

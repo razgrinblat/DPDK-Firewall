@@ -4,6 +4,8 @@
     {"action" : "accept", "protocol" : "udp", "dst_ip" : "8.8.8.8", "dst_port" : 53, "is_active" : false},
     {"action" : "accept", "protocol" : "tcp", "dst_ip" : "8.8.8.8", "dst_port" : 53, "is_active" : false},
     {"action" : "block", "protocol" : "tcp", "dst_ip" : "103.240.91.101", "dst_port" : 443, "is_active" : true},
-    {"action" : "block", "protocol" : "tcp", "dst_ip" : "103.240.91.101", "dst_port" : 80, "is_active" : true}
+    {"action" : "block", "protocol" : "tcp", "dst_ip" : "103.240.91.101", "dst_port" : 80, "is_active" : true},
+    {"action" : "block", "protocol" : "tcp", "dst_ip" : "23.77.161.124", "dst_port" : 443, "is_active" : true},
+    {"action" : "block", "protocol" : "tcp", "dst_ip" : "66.22.84.55", "dst_port" : 443, "is_active" : true}
   ]
 }

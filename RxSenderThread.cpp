@@ -1,14 +1,5 @@
 #include "RxSenderThread.hpp"
 
-bool RxSenderThread::isLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, const pcpp::IPv4Address &local_ip,
-    const pcpp::IPv4Address &subnet_mask)
-{
-    const uint32_t dest_network = dest_ip.toInt() & subnet_mask.toInt();
-    const uint32_t local_network = local_ip.toInt() & subnet_mask.toInt();
-
-    return local_network == dest_network;
-}
-
 void RxSenderThread::fetchPacketToProcess(std::vector<pcpp::MBufRawPacket *> &packets_to_process) const {
     std::lock_guard lock_guard(_queues_manager.getRxQueueMutex());
     const auto rx_queue = _queues_manager.getRxQueue();

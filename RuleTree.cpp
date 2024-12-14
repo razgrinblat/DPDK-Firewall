@@ -14,7 +14,7 @@ void RuleTree::buildTree()
     std::cout << "Rules Tree built Successfully" << std::endl;
 }
 
-void RuleTree::addRule(const std::unique_ptr<RulesParser::Rule> rule)
+void RuleTree::addRule(std::unique_ptr<RulesParser::Rule> rule)
 {
     auto current = _root;
     if(!current->children[rule->protocol])

@@ -62,36 +62,29 @@ void RulesParser::openAndParseRulesFile()
 
 void RulesParser::loadRules()
 {
-    try {
-        openAndParseRulesFile();
-        int rule_index = 1;
-        const Json::Value rules = _root["rules"];
-        for (const auto& rule : rules)
-        {
-            try {
-                validateRule(rule);
-                if(rule["is_active"].asBool())
-                {
-                    _rules.emplace_back(std::make_unique<Rule>(
 
-                rule["protocol"].asString(),
-                rule["dst_ip"].asString(),
-                rule["dst_port"].asInt(),
-                rule["action"].asString()
-                ));
-                }
-            }
-            catch (const std::exception& e)
+    openAndParseRulesFile();
+    int rule_index = 1;
+    const Json::Value rules = _root["rules"];
+    for (const auto& rule : rules) {
+        try {
+            validateRule(rule);
+            if(rule["is_active"].asBool())
             {
-                std::cerr  << "invalid rule" << "[" << rule_index << "]: " << e.what() << "\nRule: " << rule.toStyledString() << std::endl;
-            }
-            rule_index++;
-        }
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << e.what() << std::endl;
+                _rules.emplace_back(std::make_unique<Rule>(
 
+            rule["protocol"].asString(),
+            rule["dst_ip"].asString(),
+            rule["dst_port"].asInt(),
+            rule["action"].asString()
+            ));
+            }
+        }
+        catch (const std::exception& e)
+        {
+            throw std::invalid_argument("invalid rule [" + std::to_string(rule_index) + "]: " + e.what() + "\nRule: " + rule.toStyledString());
+        }
+        rule_index++;
     }
 }
 

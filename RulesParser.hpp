@@ -11,7 +11,6 @@ class RulesParser
 public:
     struct Rule
     {
-
         std::string protocol;
         std::string dst_ip;
         int dst_port;
