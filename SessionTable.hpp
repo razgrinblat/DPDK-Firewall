@@ -10,6 +10,7 @@
 #include <thread>
 #include <iostream>
 #include <iomanip>
+#include <Packet.h>
 
 class SessionTable
 {
@@ -46,7 +47,9 @@ public:
     bool addNewSession(uint32_t session_hash, std::unique_ptr<TcpSession> session, const TcpState& current_state);
     TcpState& getCurrentState(uint32_t session_hash);
     void updateSession(uint32_t session_hash, const TcpState& new_state);
+    bool isDstIpInCache(const pcpp::IPv4Address& dst_ip_to_find);
     void printSessionCache();
+
 
 private:
     std::unordered_map<uint32_t,std::unique_ptr<TcpSession>> _session_cache;

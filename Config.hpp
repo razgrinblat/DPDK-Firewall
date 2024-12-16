@@ -23,8 +23,8 @@ public:
 
     //TCP SESSIONS
     static constexpr auto MAX_SESSIONS = 1000;
-    static constexpr auto MAX_IDLE_SESSION_TIME = 15; //seconds
-    static constexpr auto CLEANUP_IDLE_SESSIONS_TIME = 3; //seconds
+    static constexpr auto MAX_IDLE_SESSION_TIME = 30; //seconds
+    static constexpr auto CLEANUP_IDLE_SESSIONS_TIME = 5; //seconds
 
 
     //THREAD MANAGEMENT

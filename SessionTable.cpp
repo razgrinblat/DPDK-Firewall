@@ -95,6 +95,19 @@ void SessionTable::updateSession(const uint32_t session_hash, const TcpState& ne
     }
 }
 
+bool SessionTable::isDstIpInCache(const pcpp::IPv4Address &dst_ip_to_find)
+{
+    for (const auto& [key, session] : _session_cache)
+    {
+        if (session->dst_ip == dst_ip_to_find)
+        {
+            //std::cout << "yessss " << dst_ip_to_find.toString() << " " << " " << session->current_state << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
 void SessionTable::printSessionCache()
 {
     std::lock_guard lock_guard(_cache_mutex); // Ensure thread safety during access
@@ -137,7 +150,7 @@ void SessionTable::printSessionCache()
         std::cout << std::setw(15) << state
                   << std::setw(20) << session->dst_ip.toString()
                   << std::setw(15) << port_info
-                  << std::setw(30) << time_buffer.data() << std::endl;
+                  << std::setw(20) << time_buffer.data() << std::endl;
     }
     std::cout << "Total sessions: " << _session_cache.size() << std::endl;
 }

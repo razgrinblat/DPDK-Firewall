@@ -2,7 +2,7 @@
 
 void PacketSniffer::openDpdkDevices()
 {
-    pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterruptedCallBack, this);
+    pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterruptedCallBack, &_keep_running);
 
     const pcpp::CoreMask core_mask_to_use = pcpp::getCoreMaskForAllMachineCores();
     pcpp::DpdkDeviceList::initDpdk(core_mask_to_use,Config::MBUF_POOL_SIZE);
@@ -36,9 +36,9 @@ void PacketSniffer::printDeviceInfo() const {
 
 void PacketSniffer::onApplicationInterruptedCallBack(void* cookie)
 {
-    auto* sniffer = static_cast<PacketSniffer*>(cookie);
+     bool* keep_running = static_cast<bool*>(cookie);
 
-    sniffer->_keep_running = false;
+    *keep_running = false;
     std::cout << std::endl << "Shutting down..." << std::endl;
 }
 

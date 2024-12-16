@@ -62,11 +62,11 @@ void RulesParser::openAndParseRulesFile()
 
 void RulesParser::loadRules()
 {
-
     openAndParseRulesFile();
     int rule_index = 1;
     const Json::Value rules = _root["rules"];
-    for (const auto& rule : rules) {
+    for (const auto& rule : rules)
+    {
         try {
             validateRule(rule);
             if(rule["is_active"].asBool())
