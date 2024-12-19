@@ -17,7 +17,7 @@ class SessionTable
 public:
     enum TcpState {
         SYN_SENT, SYN_RECEIVED, ESTABLISHED, FIN_WAIT1, FIN_WAIT2,
-        CLOSE_WAIT,  TIME_WAIT, UNKNOWN
+        CLOSE_WAIT, TIME_WAIT, LAST_ACK, UNKNOWN
     };
     struct TcpSession
     {
@@ -29,7 +29,7 @@ public:
         uint16_t dst_port;
         uint32_t current_ack;
         uint32_t current_seq;
-        std::chrono::time_point<std::chrono::steady_clock> last_active_time;
+        std::chrono::time_point<std::chrono::high_resolution_clock> last_active_time;
 
         TcpSession(const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
                    const uint16_t src_port, const uint16_t dst_port,

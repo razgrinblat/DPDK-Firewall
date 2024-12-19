@@ -18,7 +18,7 @@ public:
 
     //ARP CONFIGURATION
     static constexpr auto ARP_REQUEST_OPCODE = 256;
-    static constexpr auto MAX_RETRIES = 3; // Maximum number of ARP request retries
+    static constexpr auto MAX_RETRIES = 4; // Maximum number of ARP request retries
     static constexpr auto SLEEP_DURATION = 500; // 500 ms between retries
 
     //TCP SESSIONS

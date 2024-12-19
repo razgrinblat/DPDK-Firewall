@@ -2,18 +2,18 @@
 
 SessionTable::SessionTable(): _lru_list(Config::MAX_SESSIONS),_stop_flag(false)
 {
-    _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
+    _clean_up_thread = std::thread(&SessionTable::runCleanUpThread,this);
 }
 
 void SessionTable::cleanUpIdleSessions()
 {
-    const auto current_time = std::chrono::steady_clock::now();
+    const auto current_time = std::chrono::high_resolution_clock::now();
     std::lock_guard lock_guard(_cache_mutex);
     for (auto it = _session_cache.begin() ; it !=_session_cache.end();)
     {
         const std::unique_ptr<TcpSession>& session = it->second;
         const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
-        if(session->current_state == TIME_WAIT || (time_diff >= Config::MAX_IDLE_SESSION_TIME && session->current_state != ESTABLISHED))
+        if(time_diff >= Config::MAX_IDLE_SESSION_TIME && session->current_state != ESTABLISHED)
         {
             _lru_list.eraseElement(it->first);
             it = _session_cache.erase(it);
@@ -43,7 +43,6 @@ void SessionTable::runCleanUpThread()
 {
     while (!_stop_flag.load())
     {
-        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_IDLE_SESSIONS_TIME));
         cleanUpIdleSessions();
     }
 }
@@ -67,7 +66,7 @@ bool SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Tc
             {
                 _session_cache.erase(session_key_to_close); //session cache is full. need to delete the least active connection
             }
-            session->last_active_time = std::chrono::steady_clock::now();
+            session->last_active_time = std::chrono::high_resolution_clock::now();
             session->current_state = current_state;
             _session_cache[session_hash] = std::unique_ptr<TcpSession>(std::move(session));
         }
@@ -91,17 +90,17 @@ void SessionTable::updateSession(const uint32_t session_hash, const TcpState& ne
     {
         std::lock_guard lock_guard(_cache_mutex);
         _session_cache[session_hash]->current_state = new_state;
-        _session_cache[session_hash]->last_active_time = std::chrono::steady_clock::now();
+        _session_cache[session_hash]->last_active_time = std::chrono::high_resolution_clock::now();
     }
 }
 
 bool SessionTable::isDstIpInCache(const pcpp::IPv4Address &dst_ip_to_find)
 {
+    std::lock_guard lock_guard(_cache_mutex);
     for (const auto& [key, session] : _session_cache)
     {
         if (session->dst_ip == dst_ip_to_find)
         {
-            //std::cout << "yessss " << dst_ip_to_find.toString() << " " << " " << session->current_state << std::endl;
             return true;
         }
     }
@@ -132,25 +131,26 @@ void SessionTable::printSessionCache()
             case FIN_WAIT2:     state = "FIN_WAIT2"; break;
             case CLOSE_WAIT:    state = "CLOSE_WAIT"; break;
             case TIME_WAIT:     state = "TIME_WAIT"; break;
+            case LAST_ACK:      state = "LAST_ACK";  break;
             default:            state = "UNKNOWN"; break;
         }
 
-        // Convert `last_active_time` to HH:MM:SS format
+        // Convert `last_active_time` to HH:MM:SS format and print session details
         auto last_active_time = session->last_active_time;
+        // Adjust high_resolution_clock to system_clock
         auto now_system_time = std::chrono::system_clock::now() +
-            (last_active_time - std::chrono::steady_clock::now());
+                               (last_active_time - std::chrono::high_resolution_clock::now());
         std::time_t last_active_time_t = std::chrono::system_clock::to_time_t(now_system_time);
-
         // Format time to HH:MM:SS
         const std::tm* tm_info = std::localtime(&last_active_time_t);
-        std::array<char,9> time_buffer; // HH:MM:SS requires 8 characters + null terminator
-        std::strftime(time_buffer.data(), sizeof(time_buffer), "%H:%M:%S", tm_info);
+        std::ostringstream time_stream;
+        time_stream << std::put_time(tm_info, "%H:%M:%S");
+
         std::string port_info = std::to_string(session->source_port) + " -> " + std::to_string(session->dst_port);
-        // Print the session details
         std::cout << std::setw(15) << state
                   << std::setw(20) << session->dst_ip.toString()
                   << std::setw(15) << port_info
-                  << std::setw(20) << time_buffer.data() << std::endl;
+                  << std::setw(20) << time_stream.str() << std::endl;
     }
     std::cout << "Total sessions: " << _session_cache.size() << std::endl;
 }

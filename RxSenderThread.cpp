@@ -83,7 +83,7 @@ bool RxSenderThread::run(uint32_t coreId)
                 }
                 _packet_stats.consumePacket(parsed_packet);
 
-                if(parsed_packet.isPacketOfType(pcpp::TCP) && !_session_handler.processClientTcpPacket(&parsed_packet))
+                if(parsed_packet.isPacketOfType(pcpp::TCP) && !_session_handler.processClientTcpPacket(parsed_packet))
                 {
                     continue; // continue if the packet is unknown
                 }

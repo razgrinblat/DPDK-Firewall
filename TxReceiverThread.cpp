@@ -40,7 +40,7 @@ void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
         {
             if (parsed_packet.isPacketOfType(pcpp::TCP))
             {
-                if (_session_handler.processInternetTcpPacket(&parsed_packet))
+                if (_session_handler.processInternetTcpPacket(parsed_packet))
                 {
                     _packets_to_client.push_back(raw_packet);
                 }

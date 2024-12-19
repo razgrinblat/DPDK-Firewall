@@ -26,7 +26,7 @@ public:
     TcpSessionHandler& operator=(const TcpSessionHandler&) = delete;
     static TcpSessionHandler& getInstance();
 
-    bool processClientTcpPacket(pcpp::Packet* tcp_packet);
-    bool processInternetTcpPacket(pcpp::Packet* tcp_packet);
+    bool processClientTcpPacket(pcpp::Packet& tcp_packet);
+    bool processInternetTcpPacket(pcpp::Packet& tcp_packet);
 
 };
