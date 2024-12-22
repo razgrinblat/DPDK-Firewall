@@ -23,13 +23,9 @@ private:
     RuleTree& _rule_tree;
 
     void openDpdkDevices();
-
     void printDeviceInfo() const;
-
     static void onApplicationInterruptedCallBack(void* cookie);
-
     void startingDpdkThreads();
-
     void closeDevices();
 
 public:

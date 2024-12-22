@@ -44,6 +44,7 @@ void SessionTable::runCleanUpThread()
     while (!_stop_flag.load())
     {
         cleanUpIdleSessions();
+        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_IDLE_SESSIONS_TIME)); // to avoid busy waiting
     }
 }
 

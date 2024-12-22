@@ -1,9 +1,8 @@
 #include "RxReceiverThread.hpp"
 
 
-bool RxReceiverThread::forwardPacket(const pcpp::Packet &parsed_packet)
-{
-    pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
+bool RxReceiverThread::forwardPacket(const pcpp::Packet &parsed_packet) const {
+    const pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
     if (!ipv4_layer) {
         return false; // No IPv4 layer, cannot process the packet
     }
@@ -11,12 +10,12 @@ bool RxReceiverThread::forwardPacket(const pcpp::Packet &parsed_packet)
     std::string protocol;
     std::string dst_port;
 
-    if (pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>())
+    if (const pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>())
     {
         dst_port = std::to_string(udp_layer->getDstPort());
         protocol = "udp";
     }
-    else if (pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>())
+    else if (const pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>())
     {
         dst_port = std::to_string(tcp_layer->getDstPort());
         protocol = "tcp";

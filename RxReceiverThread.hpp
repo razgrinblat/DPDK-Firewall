@@ -17,7 +17,7 @@ private:
     QueuesManager& _queues_manager;
     RuleTree& _rule_tree;
 
-    bool forwardPacket(const pcpp::Packet& parsed_packet);
+    bool forwardPacket(const pcpp::Packet& parsed_packet) const;
 
 
 public:

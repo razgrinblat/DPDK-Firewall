@@ -6,6 +6,11 @@ RulesParser & RulesParser::getInstance(const std::string& file_path)
     return instance;
 }
 
+std::vector<std::unique_ptr<RulesParser::Rule>> RulesParser::getRules()
+{
+    return std::move(_rules);
+}
+
 RulesParser::RulesParser(const std::string &file_path): _file_path(file_path)
 {
     loadRules();
@@ -72,12 +77,10 @@ void RulesParser::loadRules()
             if(rule["is_active"].asBool())
             {
                 _rules.emplace_back(std::make_unique<Rule>(
-
-            rule["protocol"].asString(),
-            rule["dst_ip"].asString(),
-            rule["dst_port"].asInt(),
-            rule["action"].asString()
-            ));
+                    rule["protocol"].asString(),
+                    rule["dst_ip"].asString(),
+                    rule["dst_port"].asInt(),
+                    rule["action"].asString()));
             }
         }
         catch (const std::exception& e)
@@ -86,9 +89,4 @@ void RulesParser::loadRules()
         }
         rule_index++;
     }
-}
-
-std::vector<std::unique_ptr<RulesParser::Rule>> RulesParser::getRules()
-{
-    return std::move(_rules);
 }

@@ -32,6 +32,7 @@ private:
     std::string _file_path;
     Json::Value _root;
     std::vector<std::unique_ptr<Rule>> _rules;
+    
 
     RulesParser(const std::string& file_path);
     bool isValidIp(const std::string& ip);
