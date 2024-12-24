@@ -3,6 +3,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <thread>
+#include <iostream>
 #include <atomic>
 
 class InotifyWrapper
@@ -26,7 +27,6 @@ private:
 
     void eventLoop();
     void processEvent(std::array<char,BUFFER_SIZE>& event_buffer);
-    void stopThread();
 
 };
 

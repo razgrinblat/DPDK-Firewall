@@ -6,14 +6,51 @@ RulesParser & RulesParser::getInstance(const std::string& file_path)
     return instance;
 }
 
-std::vector<std::unique_ptr<RulesParser::Rule>> RulesParser::getRules()
+void RulesParser::loadRules()
 {
-    return std::move(_rules);
+    openAndParseRulesFile();
+    int rule_index = 1;
+    static bool already_loaded = false;
+    const Json::Value rules = _root["rules"];
+    for (const auto& rule : rules)
+    {
+        try {
+            validateRule(rule);
+            if(rule["is_active"].asBool())
+            {
+                _current_rules.insert({
+                    rule["protocol"].asString(),
+                    rule["dst_ip"].asString(),
+                    rule["dst_port"].asInt(),
+                    rule["action"].asString()});
+            }
+        }
+        catch (const std::exception& e)
+        {
+            if (already_loaded)
+            {
+                std::cout << "invalid rule [" << std::to_string(rule_index) << "]: " << "\nRule: " << rule.
+                    toStyledString() << std::endl;
+            }
+            else
+            {
+                throw std::invalid_argument(
+                    "invalid rule [" + std::to_string(rule_index) + "]: " + e.what() + "\nRule: " + rule.
+                    toStyledString());
+            }
+        }
+        rule_index++;
+    }
+    already_loaded = true;
+}
+
+std::unordered_set<Rule> & RulesParser::getCurrentRules()
+{
+    return _current_rules;
 }
 
 RulesParser::RulesParser(const std::string &file_path): _file_path(file_path)
 {
-    loadRules();
 }
 
 bool RulesParser::isValidIp(const std::string &ip)
@@ -60,33 +97,11 @@ void RulesParser::openAndParseRulesFile()
         throw std::runtime_error("Failed to open firewall_rules.json");
     }
     Json::Reader reader;
-    if (!reader.parse(file, _root)) {
-        throw std::runtime_error("Error parsing JSON: " + reader.getFormattedErrorMessages());
+    Json::CharReaderBuilder builder;
+    std::string errs;
+
+    if (!Json::parseFromStream(builder, file, &_root, &errs)) {
+        throw std::runtime_error("Error parsing JSON: " + errs);
     }
 }
 
-void RulesParser::loadRules()
-{
-    openAndParseRulesFile();
-    int rule_index = 1;
-    const Json::Value rules = _root["rules"];
-    for (const auto& rule : rules)
-    {
-        try {
-            validateRule(rule);
-            if(rule["is_active"].asBool())
-            {
-                _rules.emplace_back(std::make_unique<Rule>(
-                    rule["protocol"].asString(),
-                    rule["dst_ip"].asString(),
-                    rule["dst_port"].asInt(),
-                    rule["action"].asString()));
-            }
-        }
-        catch (const std::exception& e)
-        {
-            throw std::invalid_argument("invalid rule [" + std::to_string(rule_index) + "]: " + e.what() + "\nRule: " + rule.toStyledString());
-        }
-        rule_index++;
-    }
-}

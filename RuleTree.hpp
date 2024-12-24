@@ -2,6 +2,8 @@
 #include <Packet.h>
 #include <unordered_map>
 #include "RulesParser.hpp"
+#include "InotifyWrapper.hpp"
+#include <mutex>
 
 class RuleTree
 {
@@ -14,10 +16,14 @@ private:
     };
 
     std::shared_ptr<TreeNode> _root;
+    RulesParser& _rules_parser;
+    std::mutex _tree_mutex;
+    InotifyWrapper _file_watcher;
 
     RuleTree();
-    void addRule(std::unique_ptr<RulesParser::Rule> rule);
-
+    void addRule(const Rule& rule);
+    void deleteRule(const Rule& rule);
+    void FileEventCallback();
 
 public:
     ~RuleTree() = default;

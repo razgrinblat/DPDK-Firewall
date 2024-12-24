@@ -1,6 +1,5 @@
 #include "InotifyWrapper.hpp"
 
-
 InotifyWrapper::InotifyWrapper() :_inotify_fd(-1), _watch_descriptor(-1), _running(false)
 {
     _inotify_fd = inotify_init(); // blocking mode
@@ -11,9 +10,16 @@ InotifyWrapper::InotifyWrapper() :_inotify_fd(-1), _watch_descriptor(-1), _runni
 
 InotifyWrapper::~InotifyWrapper()
 {
-    stopThread();
+    _running.store(false);
+    if (_watch_descriptor >= 0) {
+        inotify_rm_watch(_inotify_fd, _watch_descriptor);
+    }
     if (_inotify_fd >= 0) {
         close(_inotify_fd);
+        _inotify_fd = -1;
+    }
+    if (_event_thread.joinable()) {
+        _event_thread.join();
     }
 }
 
@@ -53,15 +59,7 @@ void InotifyWrapper::processEvent(std::array<char,BUFFER_SIZE>& event_buffer)
 
     if (event->wd == _watch_descriptor && (event->mask & IN_MODIFY))
     {
+        std::cout << "rules file was modified!" << std::endl;
         _callback(); // Invoke the callback for the modified file
-    }
-}
-
-void InotifyWrapper::stopThread()
-{
-    _running.store(false);
-    if(_event_thread.joinable())
-    {
-        _event_thread.join();
     }
 }
