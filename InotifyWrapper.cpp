@@ -31,7 +31,7 @@ void InotifyWrapper::startWatching()
 
 void InotifyWrapper::addWatch(const std::string &file_name, const std::function<void()> &callback)
 {
-    _watch_descriptor = inotify_add_watch(_inotify_fd, file_name.c_str(), IN_MODIFY);
+    _watch_descriptor = inotify_add_watch(_inotify_fd, file_name.c_str(), IN_CLOSE_WRITE);
     if(_watch_descriptor < 0) {
         throw std::runtime_error("Failed to add inotify watch for: " + file_name);
     }
@@ -57,7 +57,7 @@ void InotifyWrapper::processEvent(std::array<char,BUFFER_SIZE>& event_buffer)
 {
     auto event = reinterpret_cast<struct inotify_event*>(event_buffer.data());
 
-    if (event->wd == _watch_descriptor && (event->mask & IN_MODIFY))
+    if (event->wd == _watch_descriptor && (event->mask & IN_CLOSE_WRITE))
     {
         std::cout << "rules file was modified!" << std::endl;
         _callback(); // Invoke the callback for the modified file

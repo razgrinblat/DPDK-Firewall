@@ -1,5 +1,7 @@
 #include "RulesParser.hpp"
 
+#include <thread>
+
 RulesParser & RulesParser::getInstance(const std::string& file_path)
 {
     static RulesParser instance(file_path);
@@ -8,6 +10,9 @@ RulesParser & RulesParser::getInstance(const std::string& file_path)
 
 void RulesParser::loadRules()
 {
+    _current_rules.clear();
+    _root.clear();
+
     openAndParseRulesFile();
     int rule_index = 1;
     static bool already_loaded = false;
@@ -29,7 +34,7 @@ void RulesParser::loadRules()
         {
             if (already_loaded)
             {
-                std::cout << "invalid rule [" << std::to_string(rule_index) << "]: " << "\nRule: " << rule.
+                std::cerr << "invalid rule [" << std::to_string(rule_index) << "]: " << "\nRule: " << rule.
                     toStyledString() << std::endl;
             }
             else
@@ -49,9 +54,8 @@ std::unordered_set<Rule> & RulesParser::getCurrentRules()
     return _current_rules;
 }
 
-RulesParser::RulesParser(const std::string &file_path): _file_path(file_path)
-{
-}
+RulesParser::RulesParser(const std::string &file_path): _file(file_path)
+{}
 
 bool RulesParser::isValidIp(const std::string &ip)
 {
@@ -92,15 +96,17 @@ void RulesParser::validateRule(const Json::Value& rule)
 
 void RulesParser::openAndParseRulesFile()
 {
-    std::ifstream file(_file_path);
-    if (!file.is_open()) {
+    if (!_file.is_open()) {
         throw std::runtime_error("Failed to open firewall_rules.json");
     }
+
+    _file.seekg(0); // Reset the file pointer to the beginning
+
     Json::Reader reader;
     Json::CharReaderBuilder builder;
     std::string errs;
 
-    if (!Json::parseFromStream(builder, file, &_root, &errs)) {
+    if (!Json::parseFromStream(builder, _file, &_root, &errs)) {
         throw std::runtime_error("Error parsing JSON: " + errs);
     }
 }

@@ -57,7 +57,7 @@ public:
 
 private:
 
-    std::string _file_path;
+    std::ifstream _file;
     Json::Value _root;
     std::unordered_set<Rule> _current_rules;
 

@@ -1,9 +1,7 @@
 {
   "rules" :
   [
-    {"action" : "block", "protocol" : "tcp", "dst_ip" : "8.8.8.8", "dst_port" : 53, "is_active" : true},
-    {"action" : "block", "protocol" : "tcp", "dst_ip" : "10.10.10.10", "dst_port" : 80, "is_active" : true},
-    {"action" : "block", "protocol" : "udp", "dst_ip" : "122.10.10.10", "dst_port" : 85, "is_active" : true}
+    {"action" : "block", "protocol" : "udp", "dst_ip" : "8.8.8.8", "dst_port" : 53, "is_active" : false}
 
   ]
 }
