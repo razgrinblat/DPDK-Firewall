@@ -77,6 +77,8 @@ add_executable(my_firewall main.cpp
         RuleTree.hpp
         InotifyWrapper.cpp
         InotifyWrapper.hpp
+        Rule.cpp
+        Rule.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly

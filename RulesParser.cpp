@@ -1,7 +1,5 @@
 #include "RulesParser.hpp"
 
-#include <thread>
-
 RulesParser & RulesParser::getInstance(const std::string& file_path)
 {
     static RulesParser instance(file_path);

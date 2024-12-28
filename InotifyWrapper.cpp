@@ -59,7 +59,7 @@ void InotifyWrapper::processEvent(std::array<char,BUFFER_SIZE>& event_buffer)
 
     if (event->wd == _watch_descriptor && (event->mask & IN_CLOSE_WRITE))
     {
-        std::cout << "rules file was modified!" << std::endl;
+        std::cout << "The rules file was modified!" << std::endl;
         _callback(); // Invoke the callback for the modified file
     }
 }
