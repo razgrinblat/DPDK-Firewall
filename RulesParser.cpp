@@ -24,7 +24,7 @@ void RulesParser::loadRules()
                 _current_rules.insert({
                     rule["protocol"].asString(),
                     rule["dst_ip"].asString(),
-                    rule["dst_port"].asInt(),
+                    convertPortToString(rule["dst_port"]),
                     rule["action"].asString()});
             }
         }
@@ -32,7 +32,7 @@ void RulesParser::loadRules()
         {
             if (already_loaded)
             {
-                std::cerr << "invalid rule [" << std::to_string(rule_index) << "]: " << "\nRule: " << rule.
+                std::cerr << "invalid rule [" << std::to_string(rule_index) << "]: " << e.what() << "\nRule: " << rule.
                     toStyledString() << std::endl;
             }
             else
@@ -47,7 +47,7 @@ void RulesParser::loadRules()
     already_loaded = true;
 }
 
-std::unordered_set<Rule> & RulesParser::getCurrentRules()
+const std::unordered_set<Rule> & RulesParser::getCurrentRules()
 {
     return _current_rules;
 }
@@ -77,14 +77,17 @@ void RulesParser::validateRule(const Json::Value& rule)
     {
         throw std::invalid_argument("Invalid IP");
     }
-    if (!rule["dst_port"].isInt())
+    if (!(rule["dst_port"].isInt() || (rule["dst_port"].isString() && rule["dst_port"].asString() == "*")))
     {
-        throw std::invalid_argument("Field 'port' must be an integer");
+        throw std::invalid_argument("Field 'port' must be an integer or '*'");
     }
-    const int port = rule["dst_port"].asInt();
-    if (port < 1 || port > Config::MAX_PORT_NUMBER)
+    if (rule["dst_port"].isInt())
     {
-        throw std::invalid_argument("Field 'port' must be a valid port number (1-65535), got: " + std::to_string(port));
+        const int port = rule["dst_port"].asInt();
+        if (port < 1 || port > Config::MAX_PORT_NUMBER)
+        {
+            throw std::invalid_argument("Field 'port' must be a valid port number (1-65535), got: " + std::to_string(port));
+        }
     }
     if (!rule["is_active"].isBool())
     {
@@ -109,3 +112,11 @@ void RulesParser::openAndParseRulesFile()
     }
 }
 
+std::string RulesParser::convertPortToString(const Json::Value &dst_port)
+{
+    if (dst_port.isInt())
+    {
+        return std::to_string(dst_port.asInt());
+    }
+    return dst_port.asString();
+}

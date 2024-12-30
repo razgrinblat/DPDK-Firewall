@@ -1,8 +1,8 @@
 {
   "rules" :
   [
-    {"action" : "block", "protocol" : "tcp", "dst_ip" : "8.8.8.8", "dst_port" : 53, "is_active" : true},
-    {"action" : "block", "protocol" : "tcp", "dst_ip" : "8.8.8.8", "dst_port" : 666, "is_active" : false},
-    {"action" : "block", "protocol" : "udp", "dst_ip" : "140.10.56.8", "dst_port" : 80, "is_active" : true}
+    {"action" : "block", "protocol" : "udp", "dst_ip" : "8.8.8.8", "dst_port" : "*", "is_active" : false},
+    {"action" : "block", "protocol" : "udp", "dst_ip" : "8.8.8.8", "dst_port" : 53, "is_active" : false},
+    {"action" : "block", "protocol" : "udp", "dst_ip" : "8.8.8.8", "dst_port" : 80, "is_active" : false}
   ]
 }

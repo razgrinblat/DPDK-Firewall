@@ -7,18 +7,19 @@ class Rule
 private:
     std::string protocol;
     std::string dst_ip;
-    int dst_port;
+    std::string dst_port;
     std::string action;
 
 public:
 
-    Rule(const std::string& protocol, const std::string& dst_ip, int dst_port, const std::string& action);
+    Rule(const std::string& protocol, const std::string& dst_ip, const std::string& dst_port, const std::string& action);
     ~Rule() = default;
 
     std::string getProtocol() const;
     std::string getDstIp() const;
-    int getDstPort() const;
+    std::string getDstPort() const;
     std::string getAction() const;
+    std::string toString() const;
 
     bool operator==(const Rule& other) const;
 

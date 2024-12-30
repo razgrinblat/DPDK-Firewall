@@ -36,26 +36,27 @@ void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
             const pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
             _arp_handler.handleReceivedArpPacket(*arp_layer);
         }
-        else
+        else if (parsed_packet.isPacketOfType(pcpp::TCP))
         {
-            if (parsed_packet.isPacketOfType(pcpp::TCP))
-            {
-                if (_session_handler.processInternetTcpPacket(parsed_packet))
-                {
-                    _packets_to_client.push_back(raw_packet);
-                }
-            }
-            else
+            if (_rule_tree.handleInboundForwarding(parsed_packet) && _session_handler.processInternetTcpPacket(parsed_packet)) // forward by firewall rules and stateful inspection
             {
                 _packets_to_client.push_back(raw_packet);
             }
+        }
+        else if (parsed_packet.isPacketOfType(pcpp::UDP) && _rule_tree.handleInboundForwarding(parsed_packet)) // forward by firewall rules
+        {
+            _packets_to_client.push_back(raw_packet);
+        }
+        else {
+            _packets_to_client.push_back(raw_packet);
         }
     }
 }
 
 TxReceiverThread::TxReceiverThread(pcpp::DpdkDevice *tx_device) : _tx_device1(tx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1),
                                                                   _queues_manager(QueuesManager::getInstance()), _arp_handler(ArpHandler::getInstance()),
-                                                                  _packet_stats(PacketStats::getInstance()), _session_handler(TcpSessionHandler::getInstance())
+                                                                  _packet_stats(PacketStats::getInstance()), _session_handler(TcpSessionHandler::getInstance()),
+                                                                  _rule_tree(RuleTree::getInstance())
 {
 }
 

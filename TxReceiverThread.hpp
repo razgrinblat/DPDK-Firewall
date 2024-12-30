@@ -7,6 +7,7 @@
 #include "ArpHandler.hpp"
 #include "PacketStats.hpp"
 #include "TcpSessionHandler.hpp"
+#include "RuleTree.hpp"
 
 class TxReceiverThread : public pcpp::DpdkWorkerThread
 {
@@ -19,6 +20,7 @@ private:
     ArpHandler& _arp_handler;
     PacketStats& _packet_stats;
     TcpSessionHandler& _session_handler;
+    RuleTree& _rule_tree;
 
     void pushToTxQueue();
     void processReceivedPackets(std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST>& mbuf_array);

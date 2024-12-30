@@ -10,17 +10,6 @@
 
 class RulesParser
 {
-public:
-
-    ~RulesParser() = default;
-    RulesParser(const RulesParser&) = delete;
-    RulesParser& operator=(const RulesParser&) = delete;
-    static RulesParser& getInstance(const std::string& file_path);
-
-    void loadRules();
-    std::unordered_set<Rule>& getCurrentRules();
-
-
 private:
 
     std::ifstream _file;
@@ -31,5 +20,16 @@ private:
     bool isValidIp(const std::string& ip);
     void validateRule(const Json::Value& rule);
     void openAndParseRulesFile();
+    std::string convertPortToString(const Json::Value& dst_port);
+
+public:
+
+    ~RulesParser() = default;
+    RulesParser(const RulesParser&) = delete;
+    RulesParser& operator=(const RulesParser&) = delete;
+    static RulesParser& getInstance(const std::string& file_path);
+
+    void loadRules();
+    const std::unordered_set<Rule>& getCurrentRules();
 
 };
