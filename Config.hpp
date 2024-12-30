@@ -12,6 +12,8 @@ public:
     static constexpr auto DPDK_DEVICE_2 = 1;
     static constexpr auto DEFAULT_PACKET_SIZE = 100; // in bytes
     static constexpr auto MAX_PORT_NUMBER = 65535;
+    static constexpr auto MAX_IPV4_OCTET_NUMBER = 255;
+    static constexpr auto MAX_IP_OCTETS = 4;
 
     //RULES FILE PATH
     static auto constexpr FILE_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/firewall_rules.json";

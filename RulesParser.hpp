@@ -4,6 +4,9 @@
 #include <fstream>
 #include <IpAddress.h>
 #include <memory>
+#include <vector>
+#include <cctype>
+#include <sstream>
 #include "Config.hpp"
 #include <unordered_set>
 #include "Rule.hpp"
@@ -17,7 +20,7 @@ private:
     std::unordered_set<Rule> _current_rules;
 
     RulesParser(const std::string& file_path);
-    bool isValidIp(const std::string& ip);
+    bool isValidIPv4(const std::string& ip);
     void validateRule(const Json::Value& rule);
     void openAndParseRulesFile();
     std::string convertPortToString(const Json::Value& dst_port);

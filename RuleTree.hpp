@@ -25,6 +25,9 @@ private:
     std::unordered_set<Rule> _conflicted_rules;
 
     RuleTree();
+
+    bool isIpSubset(const std::string& ip1,const std::string& ip2);
+    bool isIpConflict(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
     void addRule(const Rule& rule);
     void deleteRule(const Rule& rule);
     void resolveConflictedRules(const std::unordered_set<Rule>& current_rules);

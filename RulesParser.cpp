@@ -55,9 +55,34 @@ const std::unordered_set<Rule> & RulesParser::getCurrentRules()
 RulesParser::RulesParser(const std::string &file_path): _file(file_path)
 {}
 
-bool RulesParser::isValidIp(const std::string &ip)
+bool RulesParser::isValidIPv4(const std::string &ip)
 {
-    return pcpp::IPv4Address(ip).isValid();
+    std::vector<std::string> ip_parts;
+    std::stringstream ss(ip);
+    std::string part;
+
+    while (std::getline(ss,part,'.'))
+    {
+        ip_parts.push_back(part);
+    }
+    if (ip_parts.size() > 4) {
+        return false;
+    }
+    for (const auto& octet : ip_parts)
+    {
+        if (octet == "*") { continue;}
+        if (octet.empty() || octet.size() > 3) { return false;}
+        for (const char c : octet)
+        {
+            if (!std::isdigit(c)) { return false;}
+        }
+        uint16_t value = std::stoi(octet);
+        if (value < 0 || value > Config::MAX_IPV4_OCTET_NUMBER)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void RulesParser::validateRule(const Json::Value& rule)
@@ -73,9 +98,9 @@ void RulesParser::validateRule(const Json::Value& rule)
         throw std::invalid_argument("Field 'protocol must be 'tcp' or 'udp'");
     }
     const std::string dst_ip = rule["dst_ip"].asString();
-    if (!isValidIp(dst_ip))
+    if (!isValidIPv4(dst_ip))
     {
-        throw std::invalid_argument("Invalid IP");
+        throw std::invalid_argument("Invalid IPv4 Address");
     }
     if (!(rule["dst_port"].isInt() || (rule["dst_port"].isString() && rule["dst_port"].asString() == "*")))
     {

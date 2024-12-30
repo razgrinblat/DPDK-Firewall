@@ -6,15 +6,43 @@ RuleTree::RuleTree() : _root(std::make_shared<TreeNode>()), _rules_parser(RulesP
     _file_watcher.startWatching();
 }
 
-void RuleTree::buildTree()
+bool RuleTree::isIpSubset(const std::string& ip1,const std::string& ip2)
 {
-    _rules_parser.loadRules();
-     for(const auto& rule : _rules_parser.getCurrentRules())
-     {
-         addRule(rule);
-     }
-    std::cout << "Rules Tree built Successfully!" << std::endl;
+    std::stringstream ss1(ip1);
+    std::stringstream ss2(ip2);
+    std::array<std::string, Config::MAX_IP_OCTETS> ip1_octets;
+    std::array<std::string, Config::MAX_IP_OCTETS> ip2_octets;
+
+    for (int i = 0; i < Config::MAX_IP_OCTETS; i++)
+    {
+        std::getline(ss1,ip1_octets[i],'.');
+        std::getline(ss2,ip2_octets[i],'.');
+    }
+    for (int i = 0; i < Config::MAX_IP_OCTETS; i++)
+    {
+        if (ip1_octets[i] == "*" || ip2_octets[i] == "*") {
+            continue;
+        }
+        if (ip1_octets[i] != ip2_octets[i]) {
+            return false;
+        }
+    }
+    return true;
 }
+
+bool RuleTree::isIpConflict(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
+{
+    for (const auto& [tree_ip, val] : protocol_branch->children)
+    {
+        if (isIpSubset(tree_ip, dst_ip))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 
 void RuleTree::addRule(const Rule& rule)
 {
@@ -25,6 +53,10 @@ void RuleTree::addRule(const Rule& rule)
         current->children[rule.getProtocol()] = std::make_shared<TreeNode>();
     }
     current = current->children[rule.getProtocol()];
+    if (isIpConflict(current, rule.getDstIp()))
+    {
+        throw std::invalid_argument("[RULE CONFLICT] Conflicting rules by IP address prevent adding rule: " + rule.toString() + ". Delete conflicting rules to proceed.");
+    }
     if (current->children.find(rule.getDstIp()) == current->children.end())
     {
         current->children[rule.getDstIp()] = std::make_shared<TreeNode>();
@@ -33,7 +65,7 @@ void RuleTree::addRule(const Rule& rule)
     const std::string dst_port = rule.getDstPort();
     if (dst_port == "*" && current->children.size() > 0)
     {
-        throw std::invalid_argument("[RULE CONFLICT] Conflicting rules prevent adding rule: " + rule.toString() + ". Delete conflicting rules to proceed.");
+        throw std::invalid_argument("[RULE CONFLICT] Conflicting rules by Port number prevent adding rule: " + rule.toString() + ". Delete conflicting rules to proceed.");
     }
     if (current->children.find("*") != current->children.end())
     {
@@ -193,6 +225,16 @@ bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& i
         }
     }
     return true;
+}
+
+void RuleTree::buildTree()
+{
+    _rules_parser.loadRules();
+    for(const auto& rule : _rules_parser.getCurrentRules())
+    {
+        addRule(rule);
+    }
+    std::cout << "Rules Tree built Successfully!" << std::endl;
 }
 
 bool RuleTree::handleOutboundForwarding(const pcpp::Packet &parsed_packet)
