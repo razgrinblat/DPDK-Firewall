@@ -24,7 +24,8 @@ std::string Rule::toString() const
        + ", Action: " + action;
 }
 
-std::ostream& operator<<(std::ostream& os, const Rule& rule) {
+std::ostream& operator<<(std::ostream& os, const Rule& rule)
+{
     os << "Protocol: " << rule.protocol
        << ", Destination IP: " << rule.dst_ip
        << ", Destination Port: " << rule.dst_port
@@ -32,10 +33,11 @@ std::ostream& operator<<(std::ostream& os, const Rule& rule) {
     return os;
 }
 
-std::size_t std::hash<Rule>::operator()(const Rule& rule) const {
-    std::size_t h1 = std::hash<std::string>{}(rule.getProtocol());
-    std::size_t h2 = std::hash<std::string>{}(rule.getDstIp());
-    std::size_t h3 = std::hash<std::string>{}(rule.getDstPort());
-    std::size_t h4 = std::hash<std::string>{}(rule.getAction());
+size_t std::hash<Rule>::operator()(const Rule& rule) const
+{
+    size_t h1 = std::hash<std::string>{}(rule.getProtocol());
+    size_t h2 = std::hash<std::string>{}(rule.getDstIp());
+    size_t h3 = std::hash<std::string>{}(rule.getDstPort());
+    size_t h4 = std::hash<std::string>{}(rule.getAction());
     return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3);
 }

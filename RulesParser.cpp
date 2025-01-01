@@ -21,11 +21,14 @@ void RulesParser::loadRules()
             validateRule(rule);
             if(rule["is_active"].asBool())
             {
-                _current_rules.insert({
+                const auto is_inserted = _current_rules.insert({
                     rule["protocol"].asString(),
                     rule["dst_ip"].asString(),
                     convertPortToString(rule["dst_port"]),
                     rule["action"].asString()});
+                if (!is_inserted.second) {
+                    throw std::invalid_argument("Warning - This rule is already exist!");
+                }
             }
         }
         catch (const std::exception& e)

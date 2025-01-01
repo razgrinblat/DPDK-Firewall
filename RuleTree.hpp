@@ -23,11 +23,14 @@ private:
     std::mutex _tree_mutex;
     InotifyWrapper _file_watcher;
     std::unordered_set<Rule> _conflicted_rules;
+    int _generic_ip_number; // number that indicate how much generic ip rules are in the tree (for example *.*.*.8)
 
     RuleTree();
 
     bool isIpSubset(const std::string& ip1,const std::string& ip2);
+    const std::string* findIpMatch(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
     bool isIpConflict(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
+    std::shared_ptr<TreeNode> getChild(const std::shared_ptr<TreeNode>& node, const std::string& key);
     void addRule(const Rule& rule);
     void deleteRule(const Rule& rule);
     void resolveConflictedRules(const std::unordered_set<Rule>& current_rules);

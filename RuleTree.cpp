@@ -1,6 +1,7 @@
 #include "RuleTree.hpp"
 
-RuleTree::RuleTree() : _root(std::make_shared<TreeNode>()), _rules_parser(RulesParser::getInstance(Config::FILE_PATH))
+RuleTree::RuleTree() : _root(std::make_shared<TreeNode>()),
+_rules_parser(RulesParser::getInstance(Config::FILE_PATH)), _generic_ip_number(0)
 {
     _file_watcher.addWatch(Config::FILE_PATH, std::bind(&RuleTree::FileEventCallback, this));
     _file_watcher.startWatching();
@@ -10,39 +11,50 @@ bool RuleTree::isIpSubset(const std::string& ip1,const std::string& ip2)
 {
     std::stringstream ss1(ip1);
     std::stringstream ss2(ip2);
-    std::array<std::string, Config::MAX_IP_OCTETS> ip1_octets;
-    std::array<std::string, Config::MAX_IP_OCTETS> ip2_octets;
 
-    for (int i = 0; i < Config::MAX_IP_OCTETS; i++)
+    std::string ip1_octet;
+    std::string ip2_octet;
+
+    for (int i = 0; i < Config::IP_OCTETS; i++)
     {
-        std::getline(ss1,ip1_octets[i],'.');
-        std::getline(ss2,ip2_octets[i],'.');
-    }
-    for (int i = 0; i < Config::MAX_IP_OCTETS; i++)
-    {
-        if (ip1_octets[i] == "*" || ip2_octets[i] == "*") {
+        std::getline(ss1,ip1_octet,'.');
+        std::getline(ss2,ip2_octet,'.');
+
+        if (ip1_octet == "*" || ip2_octet == "*") {
             continue;
         }
-        if (ip1_octets[i] != ip2_octets[i]) {
+        if (ip1_octet != ip2_octet) {
             return false;
         }
     }
     return true;
 }
 
-bool RuleTree::isIpConflict(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
+const std::string* RuleTree::findIpMatch(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
 {
     for (const auto& [tree_ip, val] : protocol_branch->children)
     {
         if (isIpSubset(tree_ip, dst_ip))
         {
-            return true;
+            return &tree_ip;
         }
     }
-    return false;
+    return nullptr;
 }
 
+bool RuleTree::isIpConflict(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
+{
+    return findIpMatch(protocol_branch, dst_ip) != nullptr;
+}
 
+std::shared_ptr<RuleTree::TreeNode> RuleTree::getChild(const std::shared_ptr<TreeNode> &node, const std::string &key)
+{
+    auto it = node->children.find(key);
+    if (it == node->children.end()) {
+        throw std::runtime_error("Node with key '" + key + "' not found in the tree!");
+    }
+    return it->second;
+}
 
 void RuleTree::addRule(const Rule& rule)
 {
@@ -77,47 +89,39 @@ void RuleTree::addRule(const Rule& rule)
     }
     current = current->children[dst_port];
     current->action = rule.getAction();
+    if (rule.getDstIp().find('*') != std::string::npos) {
+        _generic_ip_number++;
+    }
 }
 
 void RuleTree::deleteRule(const Rule &rule)
 {
-    if (_conflicted_rules.find(rule) == _conflicted_rules.end())
+    if (_conflicted_rules.find(rule) != _conflicted_rules.end())
     {
-        std::lock_guard lock_guard(_tree_mutex);
-        auto current = _root;
-        if(current->children.find(rule.getProtocol()) != current->children.end())
-        {
-            std::pair delete_node(_root, rule.getProtocol());
-            current = current->children[rule.getProtocol()];
-            if (current->children.find(rule.getDstIp()) != current->children.end())
-            {
-                if (current->children.size() > 1)
-                {
-                    delete_node = std::make_pair(current,rule.getDstIp());
-                }
-                current = current->children[rule.getDstIp()];
-                if (current->children.find(rule.getDstPort()) != current->children.end())
-                {
-                    if (current->children.size() > 1)
-                    {
-                        delete_node = std::make_pair(current,rule.getDstPort());
-                    }
-                    delete_node.first->children.erase(delete_node.second);
-                }
-                else {
-                    throw std::runtime_error("Rule to delete not found in the tree!");
-                }
-            }
-            else {
-                throw std::runtime_error("Rule to delete not found in the tree!");
-            }
-        }
-        else {
-            throw std::runtime_error("Rule to delete not found in the tree!");
-        }
-    }
-    else {
         _conflicted_rules.erase(rule);
+        return;
+    }
+    std::lock_guard lock_guard(_tree_mutex);
+    auto current = _root;
+
+    std::pair delete_node(_root, rule.getProtocol());
+
+    current = getChild(current,rule.getProtocol());
+    if (current->children.size() > 1)
+    {
+        delete_node = std::make_pair(current,rule.getDstIp());
+    }
+    current = getChild(current,rule.getDstIp());
+
+    if (current->children.size() > 1)
+    {
+        delete_node = std::make_pair(current,rule.getDstPort());
+    }
+    current = getChild(current,rule.getDstPort());
+
+    delete_node.first->children.erase(delete_node.second);
+    if (rule.getDstIp().find('*') != std::string::npos) {
+        _generic_ip_number--;
     }
 }
 
@@ -212,16 +216,21 @@ bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& i
         if (current->children.find(ip) != current->children.end())
         {
             current = current->children[ip];
-            if (current->children.find(port) != current->children.end())
-            {
-                current = current->children[port];
-                return !(current->action == "block");
-            }
-            if (current->children.find("*") != current->children.end())
-            {
-                current = current->children["*"];
-                return !(current->action == "block");
-            }
+        }
+        else if (_generic_ip_number > 0)
+        {
+            const std::string* matched_ip = findIpMatch(current, ip);
+            if (matched_ip != nullptr) current = current->children[*matched_ip];
+        }
+        if (current->children.find(port) != current->children.end())
+        {
+            current = current->children[port];
+            return !(current->action == "block");
+        }
+        if (current->children.find("*") != current->children.end())
+        {
+            current = current->children["*"];
+            return !(current->action == "block");
         }
     }
     return true;
