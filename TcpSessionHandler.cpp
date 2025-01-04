@@ -28,7 +28,6 @@ const pcpp::tcphdr& TcpSessionHandler::extractTcpHeader(const pcpp::Packet& tcp_
 }
 
 TcpSessionHandler::~TcpSessionHandler() {
-
 }
 
 TcpSessionHandler & TcpSessionHandler::getInstance()
@@ -46,45 +45,45 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
     {
         const auto current_state = _session_table.getCurrentState(tcp_hash);
         if (tcp_header.rstFlag) {
-        _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT);
+        _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT, tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         // SYN_SENT syn retransmissions
         else if (current_state == SessionTable::SYN_SENT && tcp_header.synFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::SYN_SENT);
+            _session_table.updateSession(tcp_hash,SessionTable::SYN_SENT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if(current_state == SessionTable::SYN_RECEIVED && tcp_header.ackFlag && !tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED);
+            _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if(current_state == SessionTable::ESTABLISHED && tcp_header.ackFlag && !tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED);
+            _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED,tcp_header.sequenceNumber,tcp_header.ackNumber);
             //data transfer, DPI checking in the future
         }
 
         //handle ACTIVE CLOSE from the client
         else if(current_state == SessionTable::ESTABLISHED && tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT1);
+            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT1,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         //FIN_WAIT1 fin retransmissions
         else if(current_state == SessionTable::FIN_WAIT1 && tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT1);
+            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT1,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if(current_state == SessionTable::FIN_WAIT1 && tcp_header.ackFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT1);
+            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT1,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if (current_state == SessionTable::FIN_WAIT2 && tcp_header.ackFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT2);
+            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT2,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
 
         //handle PASSIVE CLOSE from the client
         else if (current_state == SessionTable::CLOSE_WAIT && tcp_header.ackFlag && !tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT);
+            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if (current_state == SessionTable::CLOSE_WAIT && tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::LAST_ACK);
+            _session_table.updateSession(tcp_hash,SessionTable::LAST_ACK,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         //LAST_ACK fin retransmissions, server dont confirmed yet client's fin with ack
         else if (current_state == SessionTable::LAST_ACK && tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::LAST_ACK);
+            _session_table.updateSession(tcp_hash,SessionTable::LAST_ACK,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
 
         else if (current_state == SessionTable::TIME_WAIT && tcp_header.ackFlag) {
@@ -117,49 +116,49 @@ bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet& tcp_packet)
         const auto current_state = _session_table.getCurrentState(tcp_hash);
 
         if (tcp_header.rstFlag) {
-        _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT);
+        _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if(current_state == SessionTable::SYN_SENT && tcp_header.synFlag && tcp_header.ackFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::SYN_RECEIVED);
+            _session_table.updateSession(tcp_hash,SessionTable::SYN_RECEIVED,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         //handle SYN_RECEIVED retransmissions
         else if (current_state == SessionTable::SYN_RECEIVED && tcp_header.synFlag && tcp_header.ackFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::SYN_RECEIVED);
+            _session_table.updateSession(tcp_hash,SessionTable::SYN_RECEIVED,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if(current_state == SessionTable::ESTABLISHED && tcp_header.ackFlag && !tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED);
+            _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED,tcp_header.sequenceNumber,tcp_header.ackNumber);
             //data transfer, DPI checking in the future
         }
 
         //handle PASSIVE CLOSE from the internet
         else if(current_state == SessionTable::FIN_WAIT1 && tcp_header.ackFlag && !tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT2);
+            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT2,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if (current_state == SessionTable::FIN_WAIT1 && tcp_header.finFlag && tcp_header.ackFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT);
+            _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if(current_state == SessionTable::FIN_WAIT2 && tcp_header.ackFlag && !tcp_header.finFlag) {
             //DELAYED DATA TRANSFER
-            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT2);
+            _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT2,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if (current_state == SessionTable::FIN_WAIT2 && tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT);
+            _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
 
         //handle ACTIVE CLOSE from the internet
         else if (current_state == SessionTable::ESTABLISHED && tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT);
+            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         // CLOSE_WAIT fin retransmissions
         else if (current_state == SessionTable::CLOSE_WAIT && tcp_header.finFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT);
+            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if (current_state == SessionTable::CLOSE_WAIT && tcp_header.ackFlag) {
             //DELAYED DATA TRANSFER
-            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT);
+            _session_table.updateSession(tcp_hash,SessionTable::CLOSE_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
         else if (current_state == SessionTable::LAST_ACK && tcp_header.ackFlag) {
-            _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT);
+            _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT,tcp_header.sequenceNumber,tcp_header.ackNumber);
         }
 
         else if (current_state == SessionTable::TIME_WAIT && (tcp_header.ackFlag || tcp_header.finFlag)) {

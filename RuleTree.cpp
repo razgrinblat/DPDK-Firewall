@@ -9,8 +9,8 @@ _rules_parser(RulesParser::getInstance(Config::FILE_PATH)), _generic_ip_number(0
 
 bool RuleTree::isIpSubset(const std::string& ip1,const std::string& ip2)
 {
-    std::stringstream ss1(ip1);
-    std::stringstream ss2(ip2);
+    std::istringstream ss1(ip1);
+    std::istringstream ss2(ip2);
 
     std::string ip1_octet;
     std::string ip2_octet;
@@ -30,21 +30,21 @@ bool RuleTree::isIpSubset(const std::string& ip1,const std::string& ip2)
     return true;
 }
 
-const std::string* RuleTree::findIpMatch(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
+std::optional<std::reference_wrapper<const std::string>> RuleTree::findIpMatch(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
 {
     for (const auto& [tree_ip, val] : protocol_branch->children)
     {
         if (isIpSubset(tree_ip, dst_ip))
         {
-            return &tree_ip;
+            return tree_ip;
         }
     }
-    return nullptr;
+    return {};
 }
 
 bool RuleTree::isIpConflict(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
 {
-    return findIpMatch(protocol_branch, dst_ip) != nullptr;
+    return findIpMatch(protocol_branch, dst_ip).has_value();
 }
 
 std::shared_ptr<RuleTree::TreeNode> RuleTree::getChild(const std::shared_ptr<TreeNode> &node, const std::string &key)
@@ -219,8 +219,7 @@ bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& i
         }
         else if (_generic_ip_number > 0)
         {
-            const std::string* matched_ip = findIpMatch(current, ip);
-            if (matched_ip != nullptr) current = current->children[*matched_ip];
+            if (findIpMatch(current, ip)) current = current->children[findIpMatch(current, ip)->get()];
         }
         if (current->children.find(port) != current->children.end())
         {

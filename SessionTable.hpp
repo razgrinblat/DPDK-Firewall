@@ -45,8 +45,8 @@ public:
 
     bool isSessionExists(uint32_t session_hash);
     bool addNewSession(uint32_t session_hash, std::unique_ptr<TcpSession> session, const TcpState& current_state);
-    TcpState& getCurrentState(uint32_t session_hash);
-    void updateSession(uint32_t session_hash, const TcpState& new_state);
+    const TcpState& getCurrentState(uint32_t session_hash);
+    void updateSession(uint32_t session_hash, const TcpState& new_state, uint32_t seq_number, uint32_t ack_number);
     bool isDstIpInCache(const pcpp::IPv4Address& dst_ip_to_find);
     void printSessionCache();
 

@@ -54,9 +54,9 @@ void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
 }
 
 TxReceiverThread::TxReceiverThread(pcpp::DpdkDevice *tx_device) : _tx_device1(tx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1),
-                                                                  _queues_manager(QueuesManager::getInstance()), _arp_handler(ArpHandler::getInstance()),
-                                                                  _packet_stats(PacketStats::getInstance()), _session_handler(TcpSessionHandler::getInstance()),
-                                                                  _rule_tree(RuleTree::getInstance())
+                                                                  _packets_to_client(Config::MAX_RECEIVE_BURST), _queues_manager(QueuesManager::getInstance()),
+                                                                  _arp_handler(ArpHandler::getInstance()), _packet_stats(PacketStats::getInstance()),
+                                                                  _session_handler(TcpSessionHandler::getInstance()) , _rule_tree(RuleTree::getInstance())
 {
 }
 
@@ -66,7 +66,6 @@ bool TxReceiverThread::run(uint32_t coreId)
     _stop = false;
 
     std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST> mbuf_array= {};
-    _packets_to_client.reserve(Config::MAX_RECEIVE_BURST);
 
     while (!_stop)
     {

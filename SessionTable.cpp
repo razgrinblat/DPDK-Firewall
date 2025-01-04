@@ -76,7 +76,7 @@ bool SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Tc
     return false;
 }
 
-SessionTable::TcpState& SessionTable::getCurrentState(const uint32_t session_hash)
+const SessionTable::TcpState& SessionTable::getCurrentState(const uint32_t session_hash)
 {
     if(isSessionExists(session_hash))
     {
@@ -85,12 +85,14 @@ SessionTable::TcpState& SessionTable::getCurrentState(const uint32_t session_has
     }
 }
 
-void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state)
+void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state, uint32_t seq_number, uint32_t ack_number)
 {
     if(isSessionExists(session_hash))
     {
         std::lock_guard lock_guard(_cache_mutex);
         _session_cache[session_hash]->current_state = new_state;
+        _session_cache[session_hash]->current_ack = ack_number;
+        _session_cache[session_hash]->current_seq = seq_number;
         _session_cache[session_hash]->last_active_time = std::chrono::high_resolution_clock::now();
     }
 }

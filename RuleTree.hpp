@@ -28,7 +28,7 @@ private:
     RuleTree();
 
     bool isIpSubset(const std::string& ip1,const std::string& ip2);
-    const std::string* findIpMatch(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
+    std::optional<std::reference_wrapper<const std::string>> findIpMatch(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
     bool isIpConflict(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
     std::shared_ptr<TreeNode> getChild(const std::shared_ptr<TreeNode>& node, const std::string& key);
     void addRule(const Rule& rule);

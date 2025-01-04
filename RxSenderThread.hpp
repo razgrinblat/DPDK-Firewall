@@ -43,6 +43,3 @@ public:
 
     uint32_t getCoreId() const override;
 };
-
-
-

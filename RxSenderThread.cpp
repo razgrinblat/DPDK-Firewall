@@ -52,8 +52,7 @@ bool RxSenderThread::run(uint32_t coreId)
     _stop = false;
 
     std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST> mbuf_array= {};
-    std::vector<pcpp::MBufRawPacket*> packets_to_process; //packets to process from the Rx queue
-    packets_to_process.reserve(Config::MAX_RECEIVE_BURST);
+    std::vector<pcpp::MBufRawPacket*> packets_to_process(Config::MAX_RECEIVE_BURST); //packets to process from the Rx queue
 
     while (!_stop)
     {
