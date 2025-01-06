@@ -1,5 +1,6 @@
 #pragma once
 #include "SessionTable.hpp"
+#include "DpiEngine.hpp"
 #include <Packet.h>
 #include <IPv4Layer.h>
 #include <TcpLayer.h>
@@ -15,6 +16,7 @@ class TcpSessionHandler
 
 private:
     SessionTable& _session_table;
+    DpiEngine& _dpi_engine;
 
     TcpSessionHandler();
     std::unique_ptr<SessionTable::TcpSession> initTcpSession(const pcpp::Packet& tcp_packet, uint32_t seq_number, uint32_t ack_number);

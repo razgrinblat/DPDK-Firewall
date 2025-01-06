@@ -1,7 +1,7 @@
 #include "TcpSessionHandler.hpp"
 
-TcpSessionHandler::TcpSessionHandler(): _session_table(SessionTable::getInstance()) {
-}
+TcpSessionHandler::TcpSessionHandler(): _session_table(SessionTable::getInstance()), _dpi_engine(DpiEngine::getInstance())
+{}
 
 std::unique_ptr<SessionTable::TcpSession> TcpSessionHandler::initTcpSession(const pcpp::Packet &tcp_packet, const uint32_t seq_number, const uint32_t ack_number)
 {
@@ -56,7 +56,6 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
         }
         else if(current_state == SessionTable::ESTABLISHED && tcp_header.ackFlag && !tcp_header.finFlag) {
             _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED,tcp_header.sequenceNumber,tcp_header.ackNumber);
-            //data transfer, DPI checking in the future
         }
 
         //handle ACTIVE CLOSE from the client
@@ -103,6 +102,9 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
             return false;
         }
     }
+    //data transfer, DPI checking
+    _dpi_engine.processDpiTcpPacket(tcp_packet);
+
     return true;
 }
 
@@ -127,9 +129,7 @@ bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet& tcp_packet)
         }
         else if(current_state == SessionTable::ESTABLISHED && tcp_header.ackFlag && !tcp_header.finFlag) {
             _session_table.updateSession(tcp_hash,SessionTable::ESTABLISHED,tcp_header.sequenceNumber,tcp_header.ackNumber);
-            //data transfer, DPI checking in the future
         }
-
         //handle PASSIVE CLOSE from the internet
         else if(current_state == SessionTable::FIN_WAIT1 && tcp_header.ackFlag && !tcp_header.finFlag) {
             _session_table.updateSession(tcp_hash,SessionTable::FIN_WAIT2,tcp_header.sequenceNumber,tcp_header.ackNumber);
@@ -180,5 +180,8 @@ bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet& tcp_packet)
              return false;
          }
     }
+    //data transfer, DPI checking
+    _dpi_engine.processDpiTcpPacket(tcp_packet);
+
     return true;
 }

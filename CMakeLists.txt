@@ -13,6 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories(/usr/local/include/)  # Adjust for DPDK headers
 include_directories(/usr/local/include/pcapplusplus)    # PcapPlusPlus headers
 include_directories(/usr/local/include/jsoncpp)   #Json header path
+find_package(ZLIB REQUIRED) # Find Zlib on the system
 
 # Link DPDK libraries from /usr/local/lib/x86_64-linux-gnu
 link_directories(/usr/local/lib/x86_64-linux-gnu)
@@ -79,10 +80,13 @@ add_executable(my_firewall main.cpp
         InotifyWrapper.hpp
         Rule.cpp
         Rule.hpp
+        DpiEngine.cpp
+        DpiEngine.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly
 target_link_libraries(my_firewall
+        ZLIB::ZLIB
         ${PCAPPP_LIBRARIES}
         ${DPDK_LIBRARIES}
         ${SYSTEM_LIBRARIES}
