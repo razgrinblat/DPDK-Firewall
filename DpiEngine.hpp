@@ -8,6 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <zlib.h>
+#include <iomanip>
 #include "Config.hpp"
 
 class DpiEngine
@@ -19,8 +20,11 @@ private:
 
     DpiEngine();
     static void tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp::TcpStreamData& tcpData, void* userCookie);
-    static std::string decompressGzip(const uint8_t *compress_data, size_t compress_size);
-    bool isHttpMessageComplete(const std::string& http_frame) const;
+    std::string decompressGzip(const uint8_t *compress_data, size_t compress_size);
+    size_t findGzipHeaderOffset(const uint8_t* body, size_t body_length);
+    static pcpp::HttpRequestLayer* parseHttpRequest(const std::string& http_message);
+    static pcpp::HttpResponseLayer* parseHttpResponse(const std::string &http_message);
+    bool isHttpMessageComplete(const std::string& http_frame);
 
 public:
     ~DpiEngine() = default;

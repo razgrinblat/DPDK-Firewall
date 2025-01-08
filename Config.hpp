@@ -14,6 +14,7 @@ public:
     static constexpr auto MAX_PORT_NUMBER = 65535;
     static constexpr auto MAX_IPV4_OCTET_NUMBER = 255;
     static constexpr auto IP_OCTETS = 4;
+    static constexpr auto HTTP_PORT = 80;
 
     //RULES FILE PATH
     static auto constexpr FILE_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/firewall_rules.json";

@@ -43,9 +43,12 @@ void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
                 _packets_to_client.push_back(raw_packet);
             }
         }
-        else if (parsed_packet.isPacketOfType(pcpp::UDP) && _rule_tree.handleInboundForwarding(parsed_packet)) // forward by firewall rules
+        else if (parsed_packet.isPacketOfType(pcpp::UDP))
         {
-            _packets_to_client.push_back(raw_packet);
+            if (_rule_tree.handleInboundForwarding(parsed_packet)) // forward by firewall rules
+            {
+                _packets_to_client.push_back(raw_packet);
+            }
         }
         else {
             _packets_to_client.push_back(raw_packet);
