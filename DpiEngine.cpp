@@ -23,12 +23,27 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
         std::string& http_frame = dpi_engine->_http_buffers[session_key];
         http_frame.append(reinterpret_cast<const char*>(data),data_length);
 
-        if (dpi_engine->isHttpMessageComplete(http_frame)) {
-
-            std::cout << "=================HTTP-MESSAGE=================" << std::endl;
-            std:: cout << http_frame << std::endl;
-
-            dpi_engine->_http_buffers.erase(session_key);
+        try {
+            auto result = dpi_engine->isHttpMessageComplete(http_frame);
+            if (result)
+            {
+                auto& layerVariant = result.value();
+                if (const auto* request_layer = std::get_if<std::unique_ptr<pcpp::HttpRequestLayer>>(&layerVariant))
+                {
+                    const auto& layer = *request_layer;
+                    std::cout << "=================HTTP-Request=================" << layer.get()->toString() << std::endl;
+                    std:: cout << http_frame << std::endl;
+                }
+                else if (const auto* response_layer = std::get_if<std::unique_ptr<pcpp::HttpResponseLayer>>(&layerVariant))
+                {
+                    const auto& layer = *response_layer;
+                    std::cout << "=================HTTP-Response=================" << layer.get()->toString()<< std::endl;
+                    std:: cout << http_frame << std::endl;
+                }
+                dpi_engine->_http_buffers.erase(session_key);
+            }
+        }catch (const std::exception& e) {
+            std::cerr << e.what() << std::endl;
         }
     }
 }
@@ -81,128 +96,120 @@ std::string DpiEngine::decompressGzip(const uint8_t* compress_data, const size_t
 
 size_t DpiEngine::findGzipHeaderOffset(const uint8_t* body, const size_t body_length)
 {
-    if (!body || body_length < 4) { // Need at least "\r\n1f8b" bytes to check
+    if (!body || body_length < 2) { // Need at least "1f8b" bytes to check
         throw std::invalid_argument("Body is null or too small to contain Gzip header");
     }
 
-    // Iterate through the body to find "\r\n1f8b"
-    for (size_t i = 0; i < body_length - 4; ++i) {
-        if (body[i] == '\r' && body[i + 1] == '\n' &&
-            body[i + 2] == 0x1f && body[i + 3] == 0x8b) {
-            return i + 2; // Return the offset pointing to the Gzip header
-            }
+    // Iterate through the body to find "1f8b"
+    for (size_t i = 0; i < body_length - 2; ++i)
+    {
+        if (body[i] == 0x1f && body[i + 1] == 0x8b)
+        {
+            return i; // Return the offset pointing to the Gzip header
+        }
     }
-
     throw std::runtime_error("Gzip header not found in body");
 }
 
-pcpp::HttpRequestLayer* DpiEngine::parseHttpRequest(const std::string &http_message)
+std::unique_ptr<pcpp::HttpRequestLayer> DpiEngine::createHttpRequestLayer(const std::string &http_message)
 {
-    // Try parsing as an HTTP request
-    auto msg = const_cast<std::string&>(http_message);
-    auto request_layer = new pcpp::HttpRequestLayer(
-        reinterpret_cast<uint8_t*>(msg.data()),
-        msg.size(),
+    uint8_t* rawBuffer = new uint8_t[http_message.size()]; //Pacpplusplus Layer own the rawBuffer and call delete[].
+    std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two delete error
+
+    return  std::make_unique<pcpp::HttpRequestLayer>(
+        rawBuffer,
+        http_message.size(),
         nullptr,
         nullptr);
-
-    // Check if parsing succeeded
-    if (request_layer->getFirstLine() != nullptr)
-    {
-        return request_layer;
-    }
-
-    return nullptr; // Parsing failed
 }
 
-pcpp::HttpResponseLayer* DpiEngine::parseHttpResponse(const std::string &http_message)
+std::unique_ptr<pcpp::HttpResponseLayer> DpiEngine::createHttpResponseLayer(const std::string &http_message)
 {
     // Try parsing as an HTTP response
-    auto msg = const_cast<std::string&>(http_message);
-    auto responseLayer = new pcpp::HttpResponseLayer(
-        reinterpret_cast<uint8_t*>(msg.data()),
-        msg.size(),
-        nullptr,nullptr);
+    uint8_t* rawBuffer = new uint8_t[http_message.size()]; // Pacpplusplus Layer own the rawBuffer and call delete[].
+    std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two delete error
 
-    // Check if parsing succeeded
-    if (responseLayer->getFirstLine() != nullptr)
-    {
-        return responseLayer;
-    }
-
-    return nullptr; // Parsing failed
+    return std::make_unique<pcpp::HttpResponseLayer>(
+        rawBuffer,
+        http_message.size(),
+        nullptr,
+        nullptr);
 }
 
-bool DpiEngine::isHttpMessageComplete(const std::string& http_frame)
+std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(const std::string& http_frame)
 {
+    if (http_frame.compare(0,1,"[") == 0)
+    {
+        return {};
+    }
     // Try parsing as an HTTP Response
     if (http_frame.compare(0,4,"HTTP") == 0)
     {
-        auto http_response = parseHttpResponse(http_frame);
-        if (http_response)
+        auto http_response = createHttpResponseLayer(http_frame);
+        if (!http_response)
         {
-            if (http_response->isHeaderComplete())
-            {
-                const pcpp::HeaderField* content_field = http_response->getFieldByName("Content-Length");
-                if (content_field)
-                {
-                    size_t expected_body_size = std::stoi(content_field->getFieldValue());
-                    size_t actual_body_size = http_response->getLayerPayloadSize();
-                    return expected_body_size == actual_body_size;
-                }
-
-                const pcpp::HeaderField* encoding_field = http_response->getFieldByName("Transfer-Encoding");
-                if (encoding_field && encoding_field->getFieldValue() == "chunked")
-                {
-                    // Check for terminating "\r\n0\r\n\r\n" chunk in the body
-                    const uint8_t* body = http_response->getLayerPayload();
-                    const size_t body_length = http_response->getLayerPayloadSize();
-                    if (body_length >= 7 && std::string(reinterpret_cast<const char*>(body), body_length).substr(body_length - 7) == "\r\n0\r\n\r\n")
-                    {
-                        try {
-                            // Extract the payload message from the http frame by Adjusting header length
-                            const uint8_t* http_msg = reinterpret_cast<const uint8_t*>(http_frame.data()) + http_response->getHeaderLen();
-
-                            // find the start of the gzip header offset
-                            const size_t gzipOffset = findGzipHeaderOffset(http_msg, body_length);
-
-                            // Adjust the http message to the gzip compress data
-                            const uint8_t* gzip_msg = http_msg + gzipOffset;
-
-                            //  decompress the gzip message (http message)
-                            const std::string decompressedData = decompressGzip(gzip_msg, body_length - gzipOffset);
-                            std::cout << "Decompressed Data: " << decompressedData << std::endl;
-                        }catch (const std::exception& e) {
-                            std::cerr << e.what() << std::endl;
-                        }
-                        return true;
-                    }
-                    std::cout << "=================chunked===================" << std::endl;
-                    return false;
-                }
-                return true; // no body
-            }
-            return false; // Incomplete headers
+            throw std::runtime_error("failed to create httpResponse layer");
         }
-        std::cerr << "Not valid HTTP frame" << std::endl;
-        return false;
+        if (!http_response->isHeaderComplete())
+        {
+            return httpLayerVariant{std::move(http_response)}; // Incomplete header
+        }
+        const pcpp::HeaderField* content_field = http_response->getFieldByName("Content-Length");
+        if (content_field) //checking if the content-length field is equals to the http payload size
+        {
+            if(http_response->getContentLength() == http_response->getLayerPayloadSize()) {
+                return {};
+            }
+            return httpLayerVariant{std::move(http_response)};
+        }
+        const pcpp::HeaderField* encoding_field = http_response->getFieldByName("Transfer-Encoding");
+        if (encoding_field && encoding_field->getFieldValue() == "chunked")
+        {
+            // Check for terminating "\r\n0\r\n\r\n" chunk in the body
+            const uint8_t* body = http_response->getLayerPayload();
+            const size_t body_length = http_response->getLayerPayloadSize();
+            if (body_length >= 7 && std::string(reinterpret_cast<const char*>(body), body_length).substr(body_length - 7) == "\r\n0\r\n\r\n")
+            {
+                try {
+                    // Extract the payload message from the http frame by Adjusting header length
+                    const uint8_t* http_msg = reinterpret_cast<const uint8_t*>(http_frame.data()) + http_response->getHeaderLen();
+
+                    // find the start of the gzip header offset
+                    const size_t gzipOffset = findGzipHeaderOffset(http_msg, body_length);
+
+                    // Adjust the http message to the gzip compress data
+                    const uint8_t* gzip_msg = http_msg + gzipOffset;
+
+                    //  decompress the gzip message (http message)
+                    const std::string decompressedData = decompressGzip(gzip_msg, body_length - gzipOffset);
+                    std::cout << "Decompressed Data: " << decompressedData << std::endl;
+                }catch (const std::exception& e) {
+                    std::cerr << e.what() << std::endl;
+                }
+                return httpLayerVariant{std::move(http_response)};;
+            }
+            std::cout << "=================chunked===================" << std::endl;
+            return {};
+        }
+        return httpLayerVariant{std::move(http_response)};; // no body
     }
-    auto http_request = parseHttpRequest(http_frame);
-    if (http_request)
+    auto http_request = createHttpRequestLayer(http_frame);
+    if (!http_request)
     {
-        if (http_request->isHeaderComplete())
-        {
-            const pcpp::HeaderField* contentField = http_request->getFieldByName("Content-Length");
-            if (contentField)
-            {
-                size_t expected_body_size = std::stoi(contentField->getFieldValue());
-                size_t actual_body_size = http_request->getLayerPayloadSize();
-                return expected_body_size == actual_body_size;
-            }
-            return true; // Headers complete, no body expected
-        }
-        return false; // Incomplete headers
+        throw std::runtime_error("failed to create http request layer");
     }
-    std::cerr << "Not valid HTTP frame" << std::endl;
-    return false;
+    if (!http_request->isHeaderComplete())
+    {
+        return {}; // Incomplete header
+    }
+    const pcpp::HeaderField* contentField = http_request->getFieldByName("Content-Length");
+    if (contentField)
+    {
+        const size_t expected_body_size = std::stoi(contentField->getFieldValue());
+        if(expected_body_size == http_request->getLayerPayloadSize()) {
+            return {};
+        }
+        return httpLayerVariant{std::move(http_request)};
+    }
+    return httpLayerVariant{std::move(http_request)}; // Headers complete, no payload expected
 }

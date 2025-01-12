@@ -1,5 +1,4 @@
 #pragma once
-#include <deque>
 #include <TcpReassembly.h>
 #include <HttpLayer.h>
 #include <unordered_map>
@@ -10,11 +9,12 @@
 #include <zlib.h>
 #include <iomanip>
 #include "Config.hpp"
+#include <cstring>
+#include <variant>
 
 class DpiEngine
 {
 private:
-    const timeval TIMEVAL_ZERO = {0,0};
     pcpp::TcpReassembly _http_reassembly;
     std::unordered_map<uint32_t, std::string> _http_buffers;
 
@@ -22,9 +22,12 @@ private:
     static void tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp::TcpStreamData& tcpData, void* userCookie);
     std::string decompressGzip(const uint8_t *compress_data, size_t compress_size);
     size_t findGzipHeaderOffset(const uint8_t* body, size_t body_length);
-    static pcpp::HttpRequestLayer* parseHttpRequest(const std::string& http_message);
-    static pcpp::HttpResponseLayer* parseHttpResponse(const std::string &http_message);
-    bool isHttpMessageComplete(const std::string& http_frame);
+    std::unique_ptr<pcpp::HttpRequestLayer> createHttpRequestLayer(const std::string& http_message);
+    std::unique_ptr<pcpp::HttpResponseLayer> createHttpResponseLayer(const std::string &http_message);
+
+    using httpLayerVariant = std::variant<std::unique_ptr<pcpp::HttpRequestLayer>, std::unique_ptr<pcpp::HttpResponseLayer>>;
+    //return Request or Response HTTP Layer if the message is complete
+    std::optional<httpLayerVariant> isHttpMessageComplete(const std::string& http_frame);
 
 public:
     ~DpiEngine() = default;
