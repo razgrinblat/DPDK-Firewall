@@ -1,6 +1,6 @@
 #include "DpiEngine.hpp"
 
-DpiEngine::DpiEngine() : _http_reassembly(tcpReassemblyMsgReadyCallback,this)
+DpiEngine::DpiEngine() : _http_reassembly(tcpReassemblyMsgReadyCallback,this), _session_table(SessionTable::getInstance())
 {}
 
 DpiEngine & DpiEngine::getInstance()
@@ -27,7 +27,7 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
             auto result = dpi_engine->isHttpMessageComplete(http_frame);
             if (result)
             {
-                auto& layerVariant = result.value();
+                const auto& layerVariant = result.value();
                 if (const auto* request_layer = std::get_if<std::unique_ptr<pcpp::HttpRequestLayer>>(&layerVariant))
                 {
                     const auto& layer = *request_layer;
@@ -39,6 +39,14 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
                     const auto& layer = *response_layer;
                     std::cout << "=================HTTP-Response=================" << layer.get()->toString()<< std::endl;
                     std:: cout << http_frame << std::endl;
+                    if (const auto decompress_data = dpi_engine->extractGzipContentFromResponse(*layer.get()))
+                    {
+                        std::cout << "Decompress Content:\n" << decompress_data.value() << std::endl;
+                        if (decompress_data->find("hotel") != std::string::npos) {
+                            dpi_engine->_session_table.blockSession(session_key);
+                            std::cout << "session to ip:" <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
+                        }
+                    }
                 }
                 dpi_engine->_http_buffers.erase(session_key);
             }
@@ -125,7 +133,6 @@ std::unique_ptr<pcpp::HttpRequestLayer> DpiEngine::createHttpRequestLayer(const 
 
 std::unique_ptr<pcpp::HttpResponseLayer> DpiEngine::createHttpResponseLayer(const std::string &http_message)
 {
-    // Try parsing as an HTTP response
     uint8_t* rawBuffer = new uint8_t[http_message.size()]; // Pacpplusplus Layer own the rawBuffer and call delete[].
     std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two delete error
 
@@ -136,12 +143,31 @@ std::unique_ptr<pcpp::HttpResponseLayer> DpiEngine::createHttpResponseLayer(cons
         nullptr);
 }
 
+std::optional<std::string> DpiEngine::extractGzipContentFromResponse(const pcpp::HttpResponseLayer &response_layer)
+{
+    const pcpp::HeaderField* content_type = response_layer.getFieldByName("Content-Type");
+    const pcpp::HeaderField* content_encoding = response_layer.getFieldByName("Content-Encoding");
+    if (content_type && content_encoding && content_type->getFieldValue() == "text/html"
+        && content_encoding->getFieldValue() == "gzip")
+    {
+        const size_t body_length = response_layer.getLayerPayloadSize();
+        // Extract the payload message from the http layer
+        const uint8_t* http_msg = response_layer.getLayerPayload();
+
+        // find the start of the gzip header offset
+        const size_t gzipOffset = findGzipHeaderOffset(http_msg, body_length);
+
+        // Adjust the http message to the gzip compress data
+        const uint8_t* gzip_msg = http_msg + gzipOffset;
+
+        //  decompress the gzip message (http message)
+        return {decompressGzip(gzip_msg, body_length - gzipOffset)};
+    }
+    return {};
+}
+
 std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(const std::string& http_frame)
 {
-    if (http_frame.compare(0,1,"[") == 0)
-    {
-        return {};
-    }
     // Try parsing as an HTTP Response
     if (http_frame.compare(0,4,"HTTP") == 0)
     {
@@ -157,7 +183,7 @@ std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(cons
         const pcpp::HeaderField* content_field = http_response->getFieldByName("Content-Length");
         if (content_field) //checking if the content-length field is equals to the http payload size
         {
-            if(http_response->getContentLength() == http_response->getLayerPayloadSize()) {
+            if(http_response->getContentLength() != http_response->getLayerPayloadSize()) {
                 return {};
             }
             return httpLayerVariant{std::move(http_response)};
@@ -170,22 +196,6 @@ std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(cons
             const size_t body_length = http_response->getLayerPayloadSize();
             if (body_length >= 7 && std::string(reinterpret_cast<const char*>(body), body_length).substr(body_length - 7) == "\r\n0\r\n\r\n")
             {
-                try {
-                    // Extract the payload message from the http frame by Adjusting header length
-                    const uint8_t* http_msg = reinterpret_cast<const uint8_t*>(http_frame.data()) + http_response->getHeaderLen();
-
-                    // find the start of the gzip header offset
-                    const size_t gzipOffset = findGzipHeaderOffset(http_msg, body_length);
-
-                    // Adjust the http message to the gzip compress data
-                    const uint8_t* gzip_msg = http_msg + gzipOffset;
-
-                    //  decompress the gzip message (http message)
-                    const std::string decompressedData = decompressGzip(gzip_msg, body_length - gzipOffset);
-                    std::cout << "Decompressed Data: " << decompressedData << std::endl;
-                }catch (const std::exception& e) {
-                    std::cerr << e.what() << std::endl;
-                }
                 return httpLayerVariant{std::move(http_response)};;
             }
             std::cout << "=================chunked===================" << std::endl;
@@ -206,7 +216,7 @@ std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(cons
     if (contentField)
     {
         const size_t expected_body_size = std::stoi(contentField->getFieldValue());
-        if(expected_body_size == http_request->getLayerPayloadSize()) {
+        if(expected_body_size != http_request->getLayerPayloadSize()) {
             return {};
         }
         return httpLayerVariant{std::move(http_request)};

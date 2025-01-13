@@ -72,8 +72,8 @@ add_executable(my_firewall main.cpp
         SessionTable.hpp
         TcpSessionHandler.cpp
         TcpSessionHandler.hpp
-        RulesParser.cpp
-        RulesParser.hpp
+        IpRulesParser.cpp
+        IpRulesParser.hpp
         RuleTree.cpp
         RuleTree.hpp
         InotifyWrapper.cpp
@@ -82,6 +82,8 @@ add_executable(my_firewall main.cpp
         Rule.hpp
         DpiEngine.cpp
         DpiEngine.hpp
+        RulesParser.cpp
+        RulesParser.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly

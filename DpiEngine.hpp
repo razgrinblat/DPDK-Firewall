@@ -11,19 +11,22 @@
 #include "Config.hpp"
 #include <cstring>
 #include <variant>
+#include "SessionTable.hpp"
 
 class DpiEngine
 {
 private:
     pcpp::TcpReassembly _http_reassembly;
     std::unordered_map<uint32_t, std::string> _http_buffers;
+    SessionTable& _session_table;
 
     DpiEngine();
     static void tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp::TcpStreamData& tcpData, void* userCookie);
     std::string decompressGzip(const uint8_t *compress_data, size_t compress_size);
     size_t findGzipHeaderOffset(const uint8_t* body, size_t body_length);
     std::unique_ptr<pcpp::HttpRequestLayer> createHttpRequestLayer(const std::string& http_message);
-    std::unique_ptr<pcpp::HttpResponseLayer> createHttpResponseLayer(const std::string &http_message);
+    std::unique_ptr<pcpp::HttpResponseLayer> createHttpResponseLayer(const std::string& http_message);
+    std::optional<std::string> extractGzipContentFromResponse(const pcpp::HttpResponseLayer& response_layer);
 
     using httpLayerVariant = std::variant<std::unique_ptr<pcpp::HttpRequestLayer>, std::unique_ptr<pcpp::HttpResponseLayer>>;
     //return Request or Response HTTP Layer if the message is complete

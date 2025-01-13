@@ -105,7 +105,7 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
     //data transfer, DPI checking
     _dpi_engine.processDpiTcpPacket(tcp_packet);
 
-    return true;
+    return _session_table.isAllowed(tcp_hash);
 }
 
 bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet& tcp_packet)
@@ -183,5 +183,5 @@ bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet& tcp_packet)
     //data transfer, DPI checking
     _dpi_engine.processDpiTcpPacket(tcp_packet);
 
-    return true;
+    return _session_table.isAllowed(tcp_hash);
 }

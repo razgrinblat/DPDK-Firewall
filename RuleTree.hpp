@@ -4,7 +4,7 @@
 #include <TcpLayer.h>
 #include <UdpLayer.h>
 #include <IPv4Layer.h>
-#include "RulesParser.hpp"
+#include "IpRulesParser.hpp"
 #include "InotifyWrapper.hpp"
 #include <mutex>
 
@@ -19,7 +19,7 @@ private:
     };
 
     std::shared_ptr<TreeNode> _root;
-    RulesParser& _rules_parser;
+    IpRulesParser& _rules_parser;
     std::mutex _tree_mutex;
     InotifyWrapper _file_watcher;
     std::unordered_set<Rule> _conflicted_rules;
