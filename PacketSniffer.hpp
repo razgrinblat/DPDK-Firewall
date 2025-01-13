@@ -2,16 +2,12 @@
 #include "DpdkDevice.h"
 #include  "DpdkDeviceList.h"
 #include "PacketStats.hpp"
-#include "IPv4Layer.h"
-#include "EthLayer.h"
-#include "ArpLayer.h"
-#include "SystemUtils.h"
-#include "IcmpLayer.h"
 #include "PcapLiveDeviceList.h"
 #include "RxReceiverThread.hpp"
 #include "RxSenderThread.hpp"
 #include "TxReceiverThread.hpp"
 #include "TxSenderThread.hpp"
+#include "HttpRulesHandler.hpp"
 
 class PacketSniffer
 {
@@ -21,7 +17,9 @@ private:
     std::vector<pcpp::DpdkWorkerThread*> _workers_threads;
     bool _keep_running;
     RuleTree& _rule_tree;
+    HttpRulesHandler& _http_rules_handler;
 
+    void buildFirewallRules();
     void openDpdkDevices();
     void printDeviceInfo() const;
     static void onApplicationInterruptedCallBack(void* cookie);

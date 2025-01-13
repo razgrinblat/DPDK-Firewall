@@ -1,5 +1,11 @@
 #include "PacketSniffer.hpp"
 
+void PacketSniffer::buildFirewallRules()
+{
+    _http_rules_handler.buildRules();
+    _rule_tree.buildTree();
+}
+
 void PacketSniffer::openDpdkDevices()
 {
     pcpp::ApplicationEventHandler::getInstance().onApplicationInterrupted(onApplicationInterruptedCallBack, &_keep_running);
@@ -42,40 +48,6 @@ void PacketSniffer::onApplicationInterruptedCallBack(void* cookie)
     std::cout << std::endl << "Shutting down..." << std::endl;
 }
 
-void PacketSniffer::startingCapture()
-{
-    std::cout << "starting capturing packets...\n";
-
-    const PacketStats& packet_stats = PacketStats::getInstance();
-    ArpHandler& arp_handler = ArpHandler::getInstance();
-    SessionTable& session_table = SessionTable::getInstance();
-    std::string user_input;
-    std::cout << "------------------------------\n";
-    std::cout << "Enter 'arp' to view ARP cache,'p' to view packet stats, 'tcp' to view TCP session cache or 'exit' to stop:\n";
-    std::cout << "------------------------------\n";
-    while (_keep_running)
-    {
-        std::getline(std::cin, user_input);
-        std::cout << "------------------------------\n";
-        if (user_input == "arp") {
-            arp_handler.printArpCache();
-        }
-        else if (user_input == "p") {
-            std::cout << "Displaying Packet Statistics:\n";
-            packet_stats.printToConsole();
-        }
-        else if (user_input == "tcp") {
-            session_table.printSessionCache();
-        }
-        else if(user_input == "exit") {
-            _keep_running = false;
-        }
-        else {
-            std::cout << "Invalid input. Please try again.\n";
-        }
-    }
-}
-
 void PacketSniffer::startingDpdkThreads()
 {
 
@@ -110,9 +82,10 @@ void PacketSniffer::closeDevices()
     }
 }
 
-PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true), _rule_tree(RuleTree::getInstance())
+PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true),
+_rule_tree(RuleTree::getInstance()), _http_rules_handler(HttpRulesHandler::getInstance())
 {
-    _rule_tree.buildTree();
+    buildFirewallRules();
     openDpdkDevices();
     printDeviceInfo();
     startingDpdkThreads();
@@ -126,4 +99,38 @@ PacketSniffer::~PacketSniffer()
     }
     _workers_threads.clear();
     closeDevices();
+}
+
+void PacketSniffer::startingCapture()
+{
+    std::cout << "starting capturing packets...\n";
+
+    const PacketStats& packet_stats = PacketStats::getInstance();
+    ArpHandler& arp_handler = ArpHandler::getInstance();
+    SessionTable& session_table = SessionTable::getInstance();
+    std::string user_input;
+    std::cout << "------------------------------\n";
+    std::cout << "Enter 'arp' to view ARP cache,'p' to view packet stats, 'tcp' to view TCP session cache or 'exit' to stop:\n";
+    std::cout << "------------------------------\n";
+    while (_keep_running)
+    {
+        std::getline(std::cin, user_input);
+        std::cout << "------------------------------\n";
+        if (user_input == "arp") {
+            arp_handler.printArpCache();
+        }
+        else if (user_input == "p") {
+            std::cout << "Displaying Packet Statistics:\n";
+            packet_stats.printToConsole();
+        }
+        else if (user_input == "tcp") {
+            session_table.printSessionCache();
+        }
+        else if(user_input == "exit") {
+            _keep_running = false;
+        }
+        else {
+            std::cout << "Invalid input. Please try again.\n";
+        }
+    }
 }

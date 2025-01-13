@@ -38,6 +38,6 @@ public:
     static HttpRulesParser& getInstance(const std::string& file_path);
 
     void loadRules() override;
-    const httpRule& getHttpRules();
+    inline const httpRule& getHttpRules();
 
 };

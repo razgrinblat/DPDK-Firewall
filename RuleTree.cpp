@@ -1,7 +1,7 @@
 #include "RuleTree.hpp"
 
 RuleTree::RuleTree() : _root(std::make_shared<TreeNode>()),
-_rules_parser(IpRulesParser::getInstance(Config::IP_RULES_PATH)), _generic_ip_number(0)
+_ip_rules_parser(IpRulesParser::getInstance(Config::IP_RULES_PATH)), _generic_ip_number(0)
 {
     _file_watcher.addWatch(Config::IP_RULES_PATH, std::bind(&RuleTree::FileEventCallback, this));
     _file_watcher.startWatching();
@@ -185,15 +185,15 @@ void RuleTree::insertingRulesEventHandler(const std::unordered_set<Rule> &previo
 void RuleTree::FileEventCallback()
 {
     // save copy for previous rules copy and load new one - current_rules
-    const auto previous_rules = _rules_parser.getCurrentRules();
+    const auto previous_rules = _ip_rules_parser.getCurrentRules();
     try {
-        _rules_parser.loadRules();
+        _ip_rules_parser.loadRules();
     }
     catch (const std::runtime_error& e) {
         std::cerr << e.what() << std::endl;
         return;
     }
-    const auto current_rules = _rules_parser.getCurrentRules();
+    const auto current_rules = _ip_rules_parser.getCurrentRules();
 
     deletingRulesEventHandler(previous_rules, current_rules);
     resolveConflictedRules(current_rules); //trying to resolve and add conflicted rules.
@@ -237,8 +237,8 @@ bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& i
 
 void RuleTree::buildTree()
 {
-    _rules_parser.loadRules();
-    for(const auto& rule : _rules_parser.getCurrentRules())
+    _ip_rules_parser.loadRules();
+    for(const auto& rule : _ip_rules_parser.getCurrentRules())
     {
         addRule(rule);
     }

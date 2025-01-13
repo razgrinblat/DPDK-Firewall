@@ -19,7 +19,7 @@ private:
     };
 
     std::shared_ptr<TreeNode> _root;
-    IpRulesParser& _rules_parser;
+    IpRulesParser& _ip_rules_parser;
     std::mutex _tree_mutex;
     InotifyWrapper _file_watcher;
     std::unordered_set<Rule> _conflicted_rules;
