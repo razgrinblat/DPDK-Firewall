@@ -1,9 +1,9 @@
 #include "RuleTree.hpp"
 
 RuleTree::RuleTree() : _root(std::make_shared<TreeNode>()),
-_rules_parser(IpRulesParser::getInstance(Config::FILE_PATH)), _generic_ip_number(0)
+_rules_parser(IpRulesParser::getInstance(Config::IP_RULES_PATH)), _generic_ip_number(0)
 {
-    _file_watcher.addWatch(Config::FILE_PATH, std::bind(&RuleTree::FileEventCallback, this));
+    _file_watcher.addWatch(Config::IP_RULES_PATH, std::bind(&RuleTree::FileEventCallback, this));
     _file_watcher.startWatching();
 }
 

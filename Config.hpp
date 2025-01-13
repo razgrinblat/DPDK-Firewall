@@ -15,9 +15,11 @@ public:
     static constexpr auto MAX_IPV4_OCTET_NUMBER = 255;
     static constexpr auto IP_OCTETS = 4;
     static constexpr auto HTTP_PORT = 80;
+    static constexpr auto DEFAULT_MAX_CONTENT_LENGTH = 10240; // 10KB for max http payload
 
     //RULES FILE PATH
-    static auto constexpr FILE_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/firewall_rules.json";
+    static auto constexpr IP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/firewall_rules.json";
+    static auto constexpr HTTP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/http_rules.json";
 
     //ARP CONFIGURATION
     static constexpr auto ARP_REQUEST_OPCODE = 256;

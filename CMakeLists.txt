@@ -84,6 +84,10 @@ add_executable(my_firewall main.cpp
         DpiEngine.hpp
         RulesParser.cpp
         RulesParser.hpp
+        HttpRulesParser.cpp
+        HttpRulesParser.hpp
+        HttpRulesHandler.cpp
+        HttpRulesHandler.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly
