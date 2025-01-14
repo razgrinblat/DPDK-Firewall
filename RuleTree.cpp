@@ -58,7 +58,7 @@ std::shared_ptr<RuleTree::TreeNode> RuleTree::getChild(const std::shared_ptr<Tre
 
 void RuleTree::addRule(const Rule& rule)
 {
-    std::lock_guard lock_guard(_tree_mutex);
+    std::unique_lock lock(_tree_mutex);
     auto current = _root;
     if(current->children.find(rule.getProtocol()) == current->children.end())
     {
@@ -101,7 +101,7 @@ void RuleTree::deleteRule(const Rule &rule)
         _conflicted_rules.erase(rule);
         return;
     }
-    std::lock_guard lock_guard(_tree_mutex);
+    std::unique_lock lock(_tree_mutex);
     auto current = _root;
 
     std::pair delete_node(_root, rule.getProtocol());
@@ -208,7 +208,7 @@ RuleTree & RuleTree::getInstance()
 
 bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& ip, const std::string& port)
 {
-    std::lock_guard lock_guard(_tree_mutex);
+    std::shared_lock lock(_tree_mutex);
     auto current = _root;
     if(current->children.find(protocol) != current->children.end())
     {

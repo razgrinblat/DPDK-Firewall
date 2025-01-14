@@ -1,10 +1,10 @@
 {
   "http_rules": {
-    "hosts": ["example.com", "httpforever.com"],
+    "hosts": ["example.com"],
     "url_path_words": ["login", "password", "admin"],
     "content_types": ["application/json", "text/html"],
-    "http_methods": ["POST", "GET"],
-    "user_agents": ["Mozilla/5.0", "curl/7.68.0"],
+    "http_methods": ["DELETE"],
+    "user_agents": ["curl/7.68.0"],
     "payload_words": ["<script>", "DROP TABLE", "SELECT *"],
     "max_content_length" : 0
   }

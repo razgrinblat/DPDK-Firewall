@@ -12,6 +12,7 @@
 #include <cstring>
 #include <variant>
 #include "SessionTable.hpp"
+#include "HttpRulesHandler.hpp"
 
 class DpiEngine
 {
@@ -19,6 +20,7 @@ private:
     pcpp::TcpReassembly _http_reassembly;
     std::unordered_map<uint32_t, std::string> _http_buffers;
     SessionTable& _session_table;
+    HttpRulesHandler& _http_rules_handler;
 
     DpiEngine();
     static void tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp::TcpStreamData& tcpData, void* userCookie);

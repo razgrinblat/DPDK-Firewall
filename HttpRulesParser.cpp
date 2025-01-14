@@ -3,7 +3,6 @@
 HttpRulesParser::HttpRulesParser(const std::string &file_path) : RulesParser(file_path), _http_rule_sets() {
 }
 
-
 void HttpRulesParser::loadSetFromJson(const Json::Value &json_array, std::unordered_set<std::string> &target_set,
                                       const std::string &field_name)
 {
@@ -39,11 +38,20 @@ void HttpRulesParser::loadRules()
     _http_rule_sets.clear();
     _root.clear();
     static bool already_loaded = false;
-    const Json::Value http_rules = _root["http_rules"];
+
     try
     {
         openAndParseRulesFile();
+        const Json::Value& http_rules = _root["http_rules"];
         loadHttpRules(http_rules);
+
+        if (http_rules.isMember("max_content_length") && http_rules["max_content_length"].isInt() && http_rules["max_content_length"].asInt() > 0)
+        {
+            _http_rule_sets.max_content_length = _root["max_content_length"].asInt();
+        }
+        else {
+            _http_rule_sets.max_content_length = Config::DEFAULT_MAX_CONTENT_LENGTH;
+        }
     }
     catch (const std::exception& e)
     {
@@ -56,18 +64,10 @@ void HttpRulesParser::loadRules()
             throw std::invalid_argument(e.what());
         }
     }
-
-    if (http_rules.isMember("max_content_length") && http_rules["max_content_length"].isInt() && http_rules["max_content_length"].asInt() > 0)
-    {
-        _http_rule_sets.max_content_length = _root["max_content_length"].asInt();
-    }
-    else {
-        _http_rule_sets.max_content_length = Config::DEFAULT_MAX_CONTENT_LENGTH;
-    }
     already_loaded = true;
 }
 
-inline const HttpRulesParser::httpRule & HttpRulesParser::getHttpRules()
+const HttpRulesParser::httpRule & HttpRulesParser::getHttpRules()
 {
     return _http_rule_sets;
 }

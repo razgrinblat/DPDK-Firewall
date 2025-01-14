@@ -6,7 +6,7 @@
 
 class HttpRulesParser : public RulesParser
 {
-private:
+public:
     struct httpRule
     {
         std::unordered_set<std::string> url_hosts;
@@ -24,6 +24,15 @@ private:
         }
     };
 
+    HttpRulesParser(const HttpRulesParser&) = delete;
+    HttpRulesParser& operator=(const HttpRulesParser&) = delete;
+    static HttpRulesParser& getInstance(const std::string& file_path);
+
+    void loadRules() override;
+    const httpRule& getHttpRules();
+
+private:
+
     httpRule _http_rule_sets;
 
     HttpRulesParser(const std::string& file_path);
@@ -32,12 +41,6 @@ private:
     void loadSetFromJson(const Json::Value& json_array, std::unordered_set<std::string>& target_set, const std::string& field_name);
     void loadHttpRules(const Json::Value& http_rules);
 
-public:
-    HttpRulesParser(const HttpRulesParser&) = delete;
-    HttpRulesParser& operator=(const HttpRulesParser&) = delete;
-    static HttpRulesParser& getInstance(const std::string& file_path);
 
-    void loadRules() override;
-    inline const httpRule& getHttpRules();
 
 };

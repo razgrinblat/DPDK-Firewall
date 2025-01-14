@@ -14,7 +14,7 @@ void IpRulesParser::loadRules()
     openAndParseRulesFile();
     int rule_index = 1;
     static bool already_loaded = false;
-    const Json::Value rules = _root["rules"];
+    const Json::Value& rules = _root["rules"];
     for (const auto& rule : rules)
     {
         try {

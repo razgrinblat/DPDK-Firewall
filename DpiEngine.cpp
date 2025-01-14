@@ -1,6 +1,7 @@
 #include "DpiEngine.hpp"
 
-DpiEngine::DpiEngine() : _http_reassembly(tcpReassemblyMsgReadyCallback,this), _session_table(SessionTable::getInstance())
+DpiEngine::DpiEngine() : _http_reassembly(tcpReassemblyMsgReadyCallback,this),
+_session_table(SessionTable::getInstance()), _http_rules_handler(HttpRulesHandler::getInstance())
 {}
 
 DpiEngine & DpiEngine::getInstance()
@@ -27,25 +28,30 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
             auto result = dpi_engine->isHttpMessageComplete(http_frame);
             if (result)
             {
-                const auto& layerVariant = result.value();
-                if (const auto* request_layer = std::get_if<std::unique_ptr<pcpp::HttpRequestLayer>>(&layerVariant))
+                const auto& layer_variant = result.value();
+                if (const auto* request_layer = std::get_if<std::unique_ptr<pcpp::HttpRequestLayer>>(&layer_variant))
                 {
                     const auto& layer = *request_layer;
-                    std::cout << "=================HTTP-Request=================" << layer.get()->toString() << std::endl;
+                    std::cout << "=================HTTP-Request=================" << layer->toString() << std::endl;
                     std:: cout << http_frame << std::endl;
+                    if (!dpi_engine->_http_rules_handler.allowOutboundForwarding(*layer))
+                    {
+                        dpi_engine->_session_table.blockSession(session_key);
+                        std::cout << "session to ip:" <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
+                    }
                 }
-                else if (const auto* response_layer = std::get_if<std::unique_ptr<pcpp::HttpResponseLayer>>(&layerVariant))
+                else if (const auto* response_layer = std::get_if<std::unique_ptr<pcpp::HttpResponseLayer>>(&layer_variant))
                 {
                     const auto& layer = *response_layer;
-                    std::cout << "=================HTTP-Response=================" << layer.get()->toString()<< std::endl;
+                    std::cout << "=================HTTP-Response=================" << layer->toString() << std::endl;
                     std:: cout << http_frame << std::endl;
-                    if (const auto decompress_data = dpi_engine->extractGzipContentFromResponse(*layer.get()))
+                    if (const auto decompress_data = dpi_engine->extractGzipContentFromResponse(*layer))
                     {
                         std::cout << "Decompress Content:\n" << decompress_data.value() << std::endl;
-                        if (decompress_data->find("hotel") != std::string::npos) {
-                            dpi_engine->_session_table.blockSession(session_key);
-                            std::cout << "session to ip:" <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
-                        }
+                        // if (decompress_data->find("hotel") != std::string::npos) {
+                        //     dpi_engine->_session_table.blockSession(session_key);
+                        //     std::cout << "session to ip:" <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
+                        // }
                     }
                 }
                 dpi_engine->_http_buffers.erase(session_key);
@@ -121,7 +127,7 @@ size_t DpiEngine::findGzipHeaderOffset(const uint8_t* body, const size_t body_le
 
 std::unique_ptr<pcpp::HttpRequestLayer> DpiEngine::createHttpRequestLayer(const std::string &http_message)
 {
-    uint8_t* rawBuffer = new uint8_t[http_message.size()]; //Pacpplusplus Layer own the rawBuffer and call delete[].
+    uint8_t* rawBuffer = new uint8_t[http_message.size()]; //Pcapplusplus Layer class own the rawBuffer and call delete[].
     std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two delete error
 
     return  std::make_unique<pcpp::HttpRequestLayer>(
@@ -133,7 +139,7 @@ std::unique_ptr<pcpp::HttpRequestLayer> DpiEngine::createHttpRequestLayer(const 
 
 std::unique_ptr<pcpp::HttpResponseLayer> DpiEngine::createHttpResponseLayer(const std::string &http_message)
 {
-    uint8_t* rawBuffer = new uint8_t[http_message.size()]; // Pacpplusplus Layer own the rawBuffer and call delete[].
+    uint8_t* rawBuffer = new uint8_t[http_message.size()]; // Pcappplusplus Layer class own the rawBuffer and call delete[].
     std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two delete error
 
     return std::make_unique<pcpp::HttpResponseLayer>(
@@ -145,8 +151,8 @@ std::unique_ptr<pcpp::HttpResponseLayer> DpiEngine::createHttpResponseLayer(cons
 
 std::optional<std::string> DpiEngine::extractGzipContentFromResponse(const pcpp::HttpResponseLayer &response_layer)
 {
-    const pcpp::HeaderField* content_type = response_layer.getFieldByName("Content-Type");
-    const pcpp::HeaderField* content_encoding = response_layer.getFieldByName("Content-Encoding");
+    const pcpp::HeaderField* content_type = response_layer.getFieldByName(PCPP_HTTP_CONTENT_TYPE_FIELD);
+    const pcpp::HeaderField* content_encoding = response_layer.getFieldByName(PCPP_HTTP_CONTENT_ENCODING_FIELD);
     if (content_type && content_encoding && content_type->getFieldValue() == "text/html"
         && content_encoding->getFieldValue() == "gzip")
     {
@@ -180,7 +186,7 @@ std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(cons
         {
             return httpLayerVariant{std::move(http_response)}; // Incomplete header
         }
-        const pcpp::HeaderField* content_field = http_response->getFieldByName("Content-Length");
+        const pcpp::HeaderField* content_field = http_response->getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
         if (content_field) //checking if the content-length field is equals to the http payload size
         {
             if(http_response->getContentLength() != http_response->getLayerPayloadSize()) {
@@ -188,7 +194,7 @@ std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(cons
             }
             return httpLayerVariant{std::move(http_response)};
         }
-        const pcpp::HeaderField* encoding_field = http_response->getFieldByName("Transfer-Encoding");
+        const pcpp::HeaderField* encoding_field = http_response->getFieldByName(PCPP_HTTP_TRANSFER_ENCODING_FIELD);
         if (encoding_field && encoding_field->getFieldValue() == "chunked")
         {
             // Check for terminating "\r\n0\r\n\r\n" chunk in the body
@@ -212,7 +218,7 @@ std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(cons
     {
         return {}; // Incomplete header
     }
-    const pcpp::HeaderField* contentField = http_request->getFieldByName("Content-Length");
+    const pcpp::HeaderField* contentField = http_request->getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
     if (contentField)
     {
         const size_t expected_body_size = std::stoi(contentField->getFieldValue());

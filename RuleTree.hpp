@@ -6,7 +6,7 @@
 #include <IPv4Layer.h>
 #include "IpRulesParser.hpp"
 #include "InotifyWrapper.hpp"
-#include <mutex>
+#include <shared_mutex>
 
 class RuleTree
 {
@@ -20,7 +20,7 @@ private:
 
     std::shared_ptr<TreeNode> _root;
     IpRulesParser& _ip_rules_parser;
-    std::mutex _tree_mutex;
+    std::shared_mutex _tree_mutex; // shared mutex for rules writer thread to acquire an exclusive lock
     InotifyWrapper _file_watcher;
     std::unordered_set<Rule> _conflicted_rules;
     int _generic_ip_number; // number that indicate how much generic ip rules are in the tree (for example *.*.*.8)
