@@ -10,8 +10,18 @@ DpiEngine & DpiEngine::getInstance()
     return instance;
 }
 
+void DpiEngine::processHttpRequest(const pcpp::HttpRequestLayer &request_layer)
+{
+
+}
+
+void DpiEngine::processHttpResponse(const pcpp::HttpResponseLayer &response_layer)
+{
+
+}
+
 void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp::TcpStreamData &tcpData,
-    void *userCookie)
+                                              void *userCookie)
 {
     if (tcpData.getConnectionData().dstPort == Config::HTTP_PORT)
     {
@@ -24,39 +34,54 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
         std::string& http_frame = dpi_engine->_http_buffers[session_key];
         http_frame.append(reinterpret_cast<const char*>(data),data_length);
 
-        try {
-            auto result = dpi_engine->isHttpMessageComplete(http_frame);
-            if (result)
+        try
+        {
+            if (const auto result = dpi_engine->isHttpMessageComplete(http_frame))
             {
                 const auto& layer_variant = result.value();
                 if (const auto* request_layer = std::get_if<std::unique_ptr<pcpp::HttpRequestLayer>>(&layer_variant))
                 {
                     const auto& layer = *request_layer;
-                    std::cout << "=================HTTP-Request=================" << layer->toString() << std::endl;
+                    std::cout << "=================HTTP-Request=================" << std::endl;
                     std:: cout << http_frame << std::endl;
                     if (!dpi_engine->_http_rules_handler.allowOutboundForwarding(*layer))
                     {
                         dpi_engine->_session_table.blockSession(session_key);
-                        std::cout << "session to ip:" <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
+                        std::cout << "session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
                     }
                 }
                 else if (const auto* response_layer = std::get_if<std::unique_ptr<pcpp::HttpResponseLayer>>(&layer_variant))
                 {
                     const auto& layer = *response_layer;
-                    std::cout << "=================HTTP-Response=================" << layer->toString() << std::endl;
+                    std::cout << "=================HTTP-Response=================" << std::endl;
                     std:: cout << http_frame << std::endl;
-                    if (const auto decompress_data = dpi_engine->extractGzipContentFromResponse(*layer))
+
+                    if (!dpi_engine->_http_rules_handler.allowInboundForwarding(*layer))
                     {
-                        std::cout << "Decompress Content:\n" << decompress_data.value() << std::endl;
-                        // if (decompress_data->find("hotel") != std::string::npos) {
-                        //     dpi_engine->_session_table.blockSession(session_key);
-                        //     std::cout << "session to ip:" <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
-                        // }
+                        dpi_engine->_session_table.blockSession(session_key);
+                        std::cout << "Session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
+                    }
+                    else if (layer->getLayerPayloadSize() > 0)
+                    {
+                        if (const auto decompress_date = dpi_engine->extractGzipContentFromResponse(*layer))
+                        {
+                            if (const auto word = dpi_engine->_http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
+                            {
+                                dpi_engine->_session_table.blockSession(session_key);
+                                std::cout << "Session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed! because the word: '" << word.value() << "' is in the html text" << std::endl;
+                            }
+                        }
+                        else if (const auto word = dpi_engine->_http_rules_handler.allowByPayloadForwarding(reinterpret_cast<const char*>(layer->getData())))
+                        {
+                            dpi_engine->_session_table.blockSession(session_key);
+                            std::cout << "Session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed! because the word: " << word.value() << " is in the html text" << std::endl;
+                        }
                     }
                 }
                 dpi_engine->_http_buffers.erase(session_key);
             }
-        }catch (const std::exception& e) {
+        }
+        catch (const std::exception& e) {
             std::cerr << e.what() << std::endl;
         }
     }
@@ -67,10 +92,12 @@ void DpiEngine::processDpiTcpPacket(pcpp::Packet &tcp_packet)
     _http_reassembly.reassemblePacket(tcp_packet);
 }
 
-std::string DpiEngine::decompressGzip(const uint8_t* compress_data, const size_t compress_size) {
-    constexpr size_t bufferSize = 1024;
-    char buffer[bufferSize];
-    std::string decompressedData;
+std::string DpiEngine::decompressGzip(const uint8_t* compress_data, const size_t compress_size)
+{
+    constexpr size_t buffer_size = 1024;
+    char buffer[buffer_size];
+    std::string decompressed_data;
+    decompressed_data.reserve(compress_size);
 
     z_stream stream{};
     stream.next_in = const_cast<Bytef*>(compress_data); // Input compressed data
@@ -84,7 +111,7 @@ std::string DpiEngine::decompressGzip(const uint8_t* compress_data, const size_t
     try {
         do {
             stream.next_out = reinterpret_cast<Bytef*>(buffer); // Output buffer
-            stream.avail_out = bufferSize; // Size of the output buffer
+            stream.avail_out = buffer_size; // Size of the output buffer
 
             int ret = inflate(&stream, Z_NO_FLUSH);
 
@@ -92,7 +119,7 @@ std::string DpiEngine::decompressGzip(const uint8_t* compress_data, const size_t
                 throw std::runtime_error("Decompression failed");
             }
 
-            decompressedData.append(buffer, bufferSize - stream.avail_out);
+            decompressed_data.append(buffer, buffer_size - stream.avail_out);
 
             if (ret == Z_STREAM_END) {
                 break;
@@ -105,7 +132,7 @@ std::string DpiEngine::decompressGzip(const uint8_t* compress_data, const size_t
        throw std::runtime_error("error in decompression");
     }
 
-    return decompressedData;
+    return decompressed_data;
 }
 
 size_t DpiEngine::findGzipHeaderOffset(const uint8_t* body, const size_t body_length)
@@ -114,7 +141,7 @@ size_t DpiEngine::findGzipHeaderOffset(const uint8_t* body, const size_t body_le
         throw std::invalid_argument("Body is null or too small to contain Gzip header");
     }
 
-    // Iterate through the body to find "1f8b"
+    // Iterate through the body to find "1f8b" - start of gzip header
     for (size_t i = 0; i < body_length - 2; ++i)
     {
         if (body[i] == 0x1f && body[i + 1] == 0x8b)

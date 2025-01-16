@@ -13,7 +13,7 @@ void SessionTable::cleanUpIdleSessions()
     {
         const std::unique_ptr<TcpSession>& session = it->second;
         const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
-        if(time_diff >= Config::MAX_IDLE_SESSION_TIME && session->current_state != ESTABLISHED)
+        if(time_diff >= Config::MAX_IDLE_SESSION_TIME && (session->current_state != ESTABLISHED || session->isAllowed == false))
         {
             _lru_list.eraseElement(it->first);
             it = _session_cache.erase(it);

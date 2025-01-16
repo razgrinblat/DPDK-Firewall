@@ -31,5 +31,6 @@ public:
     void buildRules();
     bool allowOutboundForwarding(const pcpp::HttpRequestLayer& request_layer);
     bool allowInboundForwarding(const pcpp::HttpResponseLayer& response_layer);
+    std::optional<std::string> allowByPayloadForwarding(const std::string& payload_content);
 
 };

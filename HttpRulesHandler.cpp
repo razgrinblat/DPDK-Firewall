@@ -57,7 +57,7 @@ bool HttpRulesHandler::validateUserAgent(const pcpp::HeaderField* user_agent) co
     if (user_agent != nullptr)
     {
         const auto& user_agents_set = _http_rule.user_agents;
-        const std::string name = user_agent->getFieldName() + " ";
+        const std::string name = user_agent->getFieldValue() + " ";
         if (user_agents_set.find(name.substr(0,name.find(" "))) != user_agents_set.end())
         {
             return false;
@@ -72,12 +72,12 @@ bool HttpRulesHandler::validateContentLength(const pcpp::HeaderField* content_le
     {
         try
         {
-            if (std::stoi(content_length->getFieldName()) > _http_rule.max_content_length)
+            if (std::stoi(content_length->getFieldValue()) > _http_rule.max_content_length)
             {
                 return false;
             }
         }
-        catch (...) { // content length in not a number, std::stoi exception
+        catch (...) { // content length is not a number, std::stoi exception
             return false;
         }
     }
@@ -114,6 +114,7 @@ bool HttpRulesHandler::allowOutboundForwarding(const pcpp::HttpRequestLayer& req
 
     //checking content length rule
     if (!validateContentLength(request_layer.getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD))) return false;
+
     return true;
 }
 
@@ -121,4 +122,24 @@ bool HttpRulesHandler::allowInboundForwarding(const pcpp::HttpResponseLayer &res
 {
     std::shared_lock lock(_rules_mutex);
 
+    //checking content type rule
+    if (!validateContentType(response_layer.getFieldByName(PCPP_HTTP_CONTENT_TYPE_FIELD))) return false;
+
+    if (!validateContentLength(response_layer.getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD))) return false;
+
+    return true;
+}
+
+std::optional<std::string> HttpRulesHandler::allowByPayloadForwarding(const std::string &payload_content)
+{
+    std::shared_lock lock(_rules_mutex);
+    const auto& payload_words_set = _http_rule.payload_words;
+    for (const auto& word : payload_words_set)
+    {
+        if (payload_content.find(word) != std::string::npos)
+        {
+            return {word};
+        }
+    }
+    return {};
 }

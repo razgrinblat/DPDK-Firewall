@@ -1,8 +1,8 @@
 {
   "http_rules": {
-    "hosts": ["example.com"],
+    "hosts": ["example.com", "httpforever.com"],
     "url_path_words": ["login", "password", "admin"],
-    "content_types": ["application/json", "text/html"],
+    "content_types": ["application/json"],
     "http_methods": ["DELETE"],
     "user_agents": ["curl/7.68.0"],
     "payload_words": ["<script>", "DROP TABLE", "SELECT *"],
