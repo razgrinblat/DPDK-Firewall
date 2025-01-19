@@ -24,8 +24,10 @@ private:
 
     DpiEngine();
 
-    void processHttpRequest(const pcpp::HttpRequestLayer& request_layer);
-    void processHttpResponse(const pcpp::HttpResponseLayer& response_layer);
+
+    void processHttpRequest(const std::unique_ptr<pcpp::HttpRequestLayer>& request_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data);
+    void processHttpResponse(const std::unique_ptr<pcpp::HttpResponseLayer>& response_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data);
+    void processHttpMessage(const std::string& http_frame, const pcpp::ConnectionData& tcp_data);
 
     static void tcpReassemblyMsgReadyCallback(int8_t sideIndex, const pcpp::TcpStreamData& tcpData, void* userCookie);
     std::string decompressGzip(const uint8_t *compress_data, size_t compress_size);
@@ -37,8 +39,6 @@ private:
     using httpLayerVariant = std::variant<std::unique_ptr<pcpp::HttpRequestLayer>, std::unique_ptr<pcpp::HttpResponseLayer>>;
     //return Request or Response HTTP Layer if the message is complete
     std::optional<httpLayerVariant> isHttpMessageComplete(const std::string& http_frame);
-
-
 
 public:
     ~DpiEngine() = default;

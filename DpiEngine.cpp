@@ -10,20 +10,72 @@ DpiEngine & DpiEngine::getInstance()
     return instance;
 }
 
-void DpiEngine::processHttpRequest(const pcpp::HttpRequestLayer &request_layer)
+void DpiEngine::processHttpRequest(const std::unique_ptr<pcpp::HttpRequestLayer>& request_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data)
 {
-
+    const auto& layer = *request_layer;
+    std::cout << "=================HTTP-Request=================" << std::endl;
+    std:: cout << http_msg << std::endl;
+    if (!_http_rules_handler.allowOutboundForwarding(layer))
+    {
+        _session_table.blockSession(tcp_data.flowKey);
+        std::cout << "session to Ip: " <<tcp_data.dstIP << " is closed!" << std::endl;
+    }
 }
 
-void DpiEngine::processHttpResponse(const pcpp::HttpResponseLayer &response_layer)
+void DpiEngine::processHttpResponse(const std::unique_ptr<pcpp::HttpResponseLayer>& response_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data)
 {
+    const auto& layer = *response_layer;
+    std::cout << "=================HTTP-Response=================" << std::endl;
+    std:: cout << http_msg << std::endl;
 
+    if (!_http_rules_handler.allowInboundForwarding(layer))
+    {
+        _session_table.blockSession(tcp_data.flowKey);
+        std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed!" << std::endl;
+    }
+    else if (layer.getLayerPayloadSize() > 0)
+    {
+        if (const auto decompress_date =extractGzipContentFromResponse(layer))
+        {
+            std::cout << decompress_date.value() << std::endl;
+            if (const auto word = _http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
+            {
+                _session_table.blockSession(tcp_data.flowKey);
+                std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed! because the word: '" << word.value() << "' is in the html text" << std::endl;
+            }
+        }
+        else if (!layer.getFieldByName(PCPP_HTTP_CONTENT_ENCODING_FIELD))
+        {
+            if (const auto word = _http_rules_handler.allowByPayloadForwarding(reinterpret_cast<const char*>(layer.getData())))
+            {
+                _session_table.blockSession(tcp_data.flowKey);
+                std::cout << "Session to Ip: " <<tcp_data.dstIP << " is closed! because the word: " << word.value() << " is in the html text" << std::endl;
+            }
+        }
+    }
+}
+
+void DpiEngine::processHttpMessage(const std::string &http_frame, const pcpp::ConnectionData &tcp_data)
+{
+    if (const auto result = isHttpMessageComplete(http_frame))
+    {
+        const auto& layer_variant = result.value();
+        if (const auto* request_layer = std::get_if<std::unique_ptr<pcpp::HttpRequestLayer>>(&layer_variant))
+        {
+            processHttpRequest(*request_layer, http_frame, tcp_data);
+        }
+        else if (const auto* response_layer = std::get_if<std::unique_ptr<pcpp::HttpResponseLayer>>(&layer_variant))
+        {
+            processHttpResponse(*response_layer, http_frame, tcp_data);
+        }
+        _http_buffers.erase(tcp_data.flowKey);
+    }
 }
 
 void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp::TcpStreamData &tcpData,
                                               void *userCookie)
 {
-    if (tcpData.getConnectionData().dstPort == Config::HTTP_PORT)
+    if (tcpData.getConnectionData().dstPort == Config::HTTP_PORT && !tcpData.isBytesMissing())
     {
         DpiEngine* dpi_engine = static_cast<DpiEngine*>(userCookie);
         const uint32_t session_key  = tcpData.getConnectionData().flowKey;
@@ -36,50 +88,7 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
 
         try
         {
-            if (const auto result = dpi_engine->isHttpMessageComplete(http_frame))
-            {
-                const auto& layer_variant = result.value();
-                if (const auto* request_layer = std::get_if<std::unique_ptr<pcpp::HttpRequestLayer>>(&layer_variant))
-                {
-                    const auto& layer = *request_layer;
-                    std::cout << "=================HTTP-Request=================" << std::endl;
-                    std:: cout << http_frame << std::endl;
-                    if (!dpi_engine->_http_rules_handler.allowOutboundForwarding(*layer))
-                    {
-                        dpi_engine->_session_table.blockSession(session_key);
-                        std::cout << "session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
-                    }
-                }
-                else if (const auto* response_layer = std::get_if<std::unique_ptr<pcpp::HttpResponseLayer>>(&layer_variant))
-                {
-                    const auto& layer = *response_layer;
-                    std::cout << "=================HTTP-Response=================" << std::endl;
-                    std:: cout << http_frame << std::endl;
-
-                    if (!dpi_engine->_http_rules_handler.allowInboundForwarding(*layer))
-                    {
-                        dpi_engine->_session_table.blockSession(session_key);
-                        std::cout << "Session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed!" << std::endl;
-                    }
-                    else if (layer->getLayerPayloadSize() > 0)
-                    {
-                        if (const auto decompress_date = dpi_engine->extractGzipContentFromResponse(*layer))
-                        {
-                            if (const auto word = dpi_engine->_http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
-                            {
-                                dpi_engine->_session_table.blockSession(session_key);
-                                std::cout << "Session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed! because the word: '" << word.value() << "' is in the html text" << std::endl;
-                            }
-                        }
-                        else if (const auto word = dpi_engine->_http_rules_handler.allowByPayloadForwarding(reinterpret_cast<const char*>(layer->getData())))
-                        {
-                            dpi_engine->_session_table.blockSession(session_key);
-                            std::cout << "Session to Ip: " <<tcpData.getConnectionData().dstIP << " is closed! because the word: " << word.value() << " is in the html text" << std::endl;
-                        }
-                    }
-                }
-                dpi_engine->_http_buffers.erase(session_key);
-            }
+            dpi_engine->processHttpMessage(http_frame,tcpData.getConnectionData());
         }
         catch (const std::exception& e) {
             std::cerr << e.what() << std::endl;
