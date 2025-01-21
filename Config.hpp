@@ -38,7 +38,7 @@ public:
     //IP ADDRESSES
     static inline const pcpp::IPv4Address CLIENT_IP{"192.168.1.7"};
     static inline const pcpp::IPv4Address DPDK_DEVICE1_IP{"192.168.1.10"};
-    static inline const pcpp::IPv4Address DPDK_DEVICE2_IP{"192.168.1.23"}; // "192.168.1.22" or "172.20.10.8" in HOTSPOT
+    static inline const pcpp::IPv4Address DPDK_DEVICE2_IP{"192.168.1.22"}; // "192.168.1.22" or "172.20.10.8" in HOTSPOT
     static inline const pcpp::IPv4Address ROUTER_IP{"192.168.1.1"}; // 192.168.1.1 or 172.20.10.1 in HOTSPOT
 
     //SUBNET MASK

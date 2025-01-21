@@ -13,7 +13,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories(/usr/local/include/)  # Adjust for DPDK headers
 include_directories(/usr/local/include/pcapplusplus)    # PcapPlusPlus headers
 include_directories(/usr/local/include/jsoncpp)   #Json header path
+include_directories(usr/include/websocketpp)
+include_directories(/usr/include/boost) # Boost is required for Websocket
 find_package(ZLIB REQUIRED) # Find Zlib on the system
+find_package(OpenSSL REQUIRED)
 
 # Link DPDK libraries from /usr/local/lib/x86_64-linux-gnu
 link_directories(/usr/local/lib/x86_64-linux-gnu)
@@ -47,6 +50,12 @@ set(SYSTEM_LIBRARIES
         rt                          # Real-time library for DPDK
         numa                        # NUMA support for DPDK
         jsoncpp                     # Jsoncpp library
+)
+
+# Boost libraries for Websocket++
+set(BOOST_LIBRARIES
+        boost_system
+        boost_thread
 )
 
 # Add the executable
@@ -88,11 +97,16 @@ add_executable(my_firewall main.cpp
         HttpRulesParser.hpp
         HttpRulesHandler.cpp
         HttpRulesHandler.hpp
+        WebSocketClient.cpp
+        WebSocketClient.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly
 target_link_libraries(my_firewall
         ZLIB::ZLIB
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        ${BOOST_LIBRARIES}
         ${PCAPPP_LIBRARIES}
         ${DPDK_LIBRARIES}
         ${SYSTEM_LIBRARIES}
