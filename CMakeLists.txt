@@ -99,6 +99,10 @@ add_executable(my_firewall main.cpp
         HttpRulesHandler.hpp
         WebSocketClient.cpp
         WebSocketClient.hpp
+        ClientsManager.cpp
+        ClientsManager.hpp
+        PortAllocator.cpp
+        PortAllocator.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly

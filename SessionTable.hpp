@@ -27,16 +27,13 @@ public:
         pcpp::IPv4Address dst_ip;
         uint16_t source_port;
         uint16_t dst_port;
-        uint32_t current_ack;
-        uint32_t current_seq;
         std::chrono::time_point<std::chrono::high_resolution_clock> last_active_time;
 
         TcpSession(const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
                    const uint16_t src_port, const uint16_t dst_port,
-                   const uint32_t seq, const uint32_t ack, const TcpState state)
+                   const TcpState state)
             : isAllowed(true), current_state(state), source_ip(src_ip), dst_ip(dst_ip), source_port(src_port),
-              dst_port(dst_port), current_ack(ack), current_seq(seq) {
-        }
+              dst_port(dst_port){}
     };
 
     ~SessionTable();
@@ -47,7 +44,7 @@ public:
     bool isSessionExists(uint32_t session_hash);
     bool addNewSession(uint32_t session_hash, std::unique_ptr<TcpSession> session, const TcpState& current_state);
     const TcpState& getCurrentState(uint32_t session_hash);
-    void updateSession(uint32_t session_hash, const TcpState& new_state, uint32_t seq_number, uint32_t ack_number);
+    void updateSession(uint32_t session_hash, const TcpState& new_state);
     bool isDstIpInCache(const pcpp::IPv4Address& dst_ip_to_find);
     bool isAllowed(uint32_t session_hash);
     void blockSession(uint32_t session_hash);

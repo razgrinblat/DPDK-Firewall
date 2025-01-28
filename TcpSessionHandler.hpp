@@ -19,11 +19,11 @@ private:
     DpiEngine& _dpi_engine;
 
     TcpSessionHandler();
-    std::unique_ptr<SessionTable::TcpSession> initTcpSession(const pcpp::Packet& tcp_packet, uint32_t seq_number, uint32_t ack_number);
+    std::unique_ptr<SessionTable::TcpSession> initTcpSession(const pcpp::Packet& tcp_packet);
     const pcpp::tcphdr& extractTcpHeader(const pcpp::Packet &tcp_packet);
 
 public:
-    ~TcpSessionHandler();
+    ~TcpSessionHandler() = default;
     TcpSessionHandler(const TcpSessionHandler&) = delete;
     TcpSessionHandler& operator=(const TcpSessionHandler&) = delete;
     static TcpSessionHandler& getInstance();

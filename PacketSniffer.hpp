@@ -19,7 +19,7 @@ private:
     RuleTree& _rule_tree;
     HttpRulesHandler& _http_rules_handler;
 
-    void buildFirewallRules();
+    void buildFirewallRules() const;
     void openDpdkDevices();
     void printDeviceInfo() const;
     static void onApplicationInterruptedCallBack(void* cookie);

@@ -11,25 +11,55 @@ WebSocketClient::WebSocketClient(const std::string &uri): _uri(uri), _is_connect
 
 WebSocketClient::~WebSocketClient()
 {
-    disconnect();
+    _client.stop();
     if (_ws_thread.joinable())
     {
         _ws_thread.join();
     }
 }
 
-void WebSocketClient::connect()
+void WebSocketClient::setOnMessageCallBack(const std::function<void(const std::string &)> &callback)
 {
-    std::error_code error_code;
-    Client::connection_ptr connection = _client.get_connection(_uri, error_code);
-    if (error_code)
-    {
-        throw std::runtime_error("could not create connection to the Server" + error_code.message());
-    }
-    _connectionHandle = connection->get_handle();
-    _client.connect(connection);
+    _onMessageCallback = callback;
+}
 
-    _ws_thread = std::thread(std::bind(&Client::run, &_client)); // start the WebSocket event loop
+void WebSocketClient::start()
+{
+    _ws_thread = std::thread(&Client::run, &_client);
+    doConnect();
+}
+
+void WebSocketClient::scheduleReconnect(const uint16_t delay_seconds)
+{
+    _client.set_timer(delay_seconds * 1000, [this](const websocketpp::lib::error_code& ec) {
+        if (!ec) {
+            doConnect();
+        }
+    });
+}
+
+void WebSocketClient::doConnect()
+{
+    if (_is_connected)
+    {
+        return;
+    }
+    try {
+        std::error_code ec;
+        const Client::connection_ptr conn = _client.get_connection(_uri, ec);
+
+        if (ec) {
+            std::cerr << "[WebSocketClient] Error creating connection: " << ec.message() << std::endl;
+            scheduleReconnect(2);  // Retry after 2 seconds
+            return;
+        }
+        _connectionHandle = conn->get_handle();
+        _client.connect(conn);
+
+    } catch (const std::exception& e) {
+        std::cerr << "[WebSocketClient] Exception during connection: " << e.what() << std::endl;
+        scheduleReconnect(2);  // Retry after 2 seconds
+    }
 }
 
 void WebSocketClient::sendMessage(const std::string &message)
@@ -70,19 +100,27 @@ bool WebSocketClient::isConnected() const
 void WebSocketClient::onOpen(ConnectionHandle hdl) {
     _is_connected = true;
     std::cout << "WebSocket connection established." << std::endl;
+
 }
 
 void WebSocketClient::onClose(ConnectionHandle hdl) {
     _is_connected = false;
     std::cout << "WebSocket connection closed." << std::endl;
+    scheduleReconnect(2);
 }
 
 void WebSocketClient::onFail(ConnectionHandle hdl) {
     _is_connected = false;
     std::cerr << "WebSocket connection failed." << std::endl;
+    scheduleReconnect(2);
 }
 
 void WebSocketClient::onMessage(ConnectionHandle hdl, Client::message_ptr msg)
 {
     std::cout << "Message received: " << msg->get_payload() << std::endl;
+
+    if (_onMessageCallback)
+    {
+        _onMessageCallback(msg->get_payload());
+    }
 }

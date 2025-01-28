@@ -3,7 +3,10 @@
 RxReceiverThread::RxReceiverThread(pcpp::DpdkDevice *rx_device) : _rx_device1(rx_device), _stop(true),
                                                                   _coreId(MAX_NUM_OF_CORES + 1),
                                                                   _queues_manager(QueuesManager::getInstance()),
-                                                                  _rule_tree(RuleTree::getInstance()){}
+                                                                  _rule_tree(RuleTree::getInstance()),
+                                                                  _arp_handler(ArpHandler::getInstance()),
+                                                                  _clients_manager(ClientsManager::getInstance())
+{}
 
 bool RxReceiverThread::run(uint32_t coreId)
 {
@@ -21,7 +24,13 @@ bool RxReceiverThread::run(uint32_t coreId)
                 for(uint32_t i = 0; i < num_of_packets; ++i)
                 {
                     pcpp::Packet parsed_packet(mbuf_array[i]);
-                    if(_rule_tree.handleOutboundForwarding(parsed_packet))
+                    _clients_manager.processClientPacket(parsed_packet);
+                    if (parsed_packet.isPacketOfType(pcpp::ARP)) // handle ARP requests from clients
+                    {
+                        const auto* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
+                        _arp_handler.sendArpResponsePacket(arp_layer->getSenderIpAddr(), arp_layer->getSenderMacAddress(), Config::DPDK_DEVICE_1);
+                    }
+                    else if(_rule_tree.handleOutboundForwarding(parsed_packet))
                     {
                         rx_queue->push(mbuf_array[i]);
                     }

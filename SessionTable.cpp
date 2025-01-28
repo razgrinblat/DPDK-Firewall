@@ -86,14 +86,12 @@ const SessionTable::TcpState& SessionTable::getCurrentState(const uint32_t sessi
     throw std::runtime_error("session" + std::to_string(session_hash) + "is not exist!");
 }
 
-void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state, const uint32_t seq_number, const uint32_t ack_number)
+void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state)
 {
     if(isSessionExists(session_hash))
     {
         std::lock_guard lock_guard(_cache_mutex);
         _session_cache[session_hash]->current_state = new_state;
-        _session_cache[session_hash]->current_ack = ack_number;
-        _session_cache[session_hash]->current_seq = seq_number;
         _session_cache[session_hash]->last_active_time = std::chrono::high_resolution_clock::now();
     }
     else {

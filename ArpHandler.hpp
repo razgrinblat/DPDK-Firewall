@@ -23,14 +23,17 @@ private:
     std::condition_variable _arp_response_received;// Condition variable for ARP response
     std::atomic<bool> _stop_flag; //threads stop flag
     std::vector<std::thread> _threads; //thread pool
+    PacketStats& _packet_stats;
 
     ArpHandler();
     void stopThreads();
-    void sendArpResponse(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac);
     bool isRequestAlreadyPending(const pcpp::IPv4Address& target_ip);
     void threadHandler(const pcpp::IPv4Address& target_ip); //thread handler for sending ARP requests
     bool sendArpRequestPacket(const pcpp::IPv4Address& target_ip);
     void removePendingRequest(const pcpp::IPv4Address& target_ip);
+
+    void handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer); //handle Received ARP Requests in TxReceivedThread
+    void handleReceivedArpResponse(const pcpp::ArpLayer& arp_layer); //handle Received ARP Responses in TxReceivedThread
 
 public:
 
@@ -39,8 +42,7 @@ public:
     ArpHandler& operator=(const ArpHandler&) = delete;
     static ArpHandler& getInstance();
 
-    void handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer); //handle Received ARP Requests in TxReceivedThread
-    void handleReceivedArpResponse(const pcpp::ArpLayer& arp_layer); //handle Received ARP Responses in TxReceivedThread
+    void sendArpResponsePacket(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac, uint16_t sender_device_id) const;
     void handleReceivedArpPacket(const pcpp::ArpLayer& arp_layer);
     void sendArpRequest(const pcpp::IPv4Address& target_ip); //send an ARP request in a separate thread
     pcpp::MacAddress getMacAddress(const pcpp::IPv4Address& ip);

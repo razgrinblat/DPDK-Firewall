@@ -3,7 +3,6 @@
 #include <websocketpp/config/asio_client.hpp>
 #include <string>
 
-
 class WebSocketClient
 {
 
@@ -11,8 +10,13 @@ public:
     WebSocketClient(const std::string& uri);
     ~WebSocketClient();
 
+    void setOnMessageCallBack(const std::function<void(const std::string&)>& callback);
+
+    void start();
+
+    void scheduleReconnect(uint16_t delay_seconds);
     // Establish connection to the Node.js server
-    void connect();
+    void doConnect();
 
     // Send message to the server
     void sendMessage(const std::string& message);
@@ -33,6 +37,7 @@ private:
     std::string _uri;
     bool _is_connected;
     std::thread _ws_thread;
+    std::function<void(const std::string&)> _onMessageCallback;
 
     // WebSocket event handlers
     void onOpen(ConnectionHandle hdl);

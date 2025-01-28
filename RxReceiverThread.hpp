@@ -7,6 +7,8 @@
 #include <IPv4Layer.h>
 #include <UdpLayer.h>
 #include <TcpLayer.h>
+#include "ArpHandler.hpp"
+#include "ClientsManager.hpp"
 
 class RxReceiverThread : public pcpp::DpdkWorkerThread
 {
@@ -16,6 +18,8 @@ private:
     uint32_t _coreId;
     QueuesManager& _queues_manager;
     RuleTree& _rule_tree;
+    ArpHandler& _arp_handler;
+    ClientsManager& _clients_manager;
 
 public:
     RxReceiverThread(pcpp::DpdkDevice* rx_device);
