@@ -18,9 +18,10 @@ class SessionTable
 public:
     enum TcpState {
         SYN_SENT, SYN_RECEIVED, ESTABLISHED, FIN_WAIT1, FIN_WAIT2,
-        CLOSE_WAIT, TIME_WAIT, LAST_ACK, UNKNOWN
+        CLOSE_WAIT, TIME_WAIT, LAST_ACK, UNKNOWN, UDP
     };
-    enum Protocol{TCP, UDP};
+
+    enum Protocol{TCP_PROTOCOL, UDP_PROTOCOL};
 
     struct Session
     {

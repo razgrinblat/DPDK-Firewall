@@ -9,7 +9,7 @@ std::unique_ptr<SessionTable::Session> TcpSessionHandler::initTcpSession(const p
     const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
     const pcpp::TcpLayer* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
     return std::make_unique<SessionTable::Session>(
-        SessionTable::TCP,
+        SessionTable::TCP_PROTOCOL,
        ipv4_layer->getSrcIPv4Address(),
        ipv4_layer->getDstIPv4Address(),
        tcp_layer->getSrcPort(),

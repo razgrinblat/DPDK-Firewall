@@ -3,7 +3,6 @@
 #include <unordered_map>
 #include "Config.hpp"
 #include <EthLayer.h>
-#include <iostream>
 #include <Packet.h>
 #include <DpdkDeviceList.h>
 #include <IPv4Layer.h>

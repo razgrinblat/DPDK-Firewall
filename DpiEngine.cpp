@@ -13,21 +13,16 @@ DpiEngine & DpiEngine::getInstance()
 void DpiEngine::processHttpRequest(const std::unique_ptr<pcpp::HttpRequestLayer>& request_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data)
 {
     const auto& layer = *request_layer;
-    std::cout << "=================HTTP-Request=================" << std::endl;
-    std:: cout << http_msg << std::endl;
     if (!_http_rules_handler.allowOutboundForwarding(layer))
     {
         _session_table.blockSession(tcp_data.flowKey);
-        std::cout << "session to Ip: " <<tcp_data.dstIP << " is closed!" << std::endl;
+        std::cout << "session to Ip: " << tcp_data.dstIP << " is closed!" << std::endl;
     }
 }
 
 void DpiEngine::processHttpResponse(const std::unique_ptr<pcpp::HttpResponseLayer>& response_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data)
 {
     const auto& layer = *response_layer;
-    std::cout << "=================HTTP-Response=================" << std::endl;
-    std:: cout << http_msg << std::endl;
-
     if (!_http_rules_handler.allowInboundForwarding(layer))
     {
         _session_table.blockSession(tcp_data.flowKey);

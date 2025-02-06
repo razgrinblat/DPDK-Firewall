@@ -1,8 +1,6 @@
 #pragma once
 #include <IcmpLayer.h>
 #include <mutex>
-#include <unordered_map>
-#include <MacAddress.h>
 #include <Packet.h>
 #include "ClientsManager.hpp"
 #include "PacketStats.hpp"

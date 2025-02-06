@@ -155,6 +155,7 @@ void SessionTable::printSessionCache()
             case CLOSE_WAIT:    state = "CLOSE_WAIT"; break;
             case TIME_WAIT:     state = "TIME_WAIT"; break;
             case LAST_ACK:      state = "LAST_ACK";  break;
+            case UDP:           state = "UDP";  break;
             default:            state = "UNKNOWN"; break;
         }
 

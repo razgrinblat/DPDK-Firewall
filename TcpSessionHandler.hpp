@@ -3,6 +3,7 @@
 #include "DpiEngine.hpp"
 #include <TcpLayer.h>
 #include <memory>
+#include <IPv4Layer.h>
 #include <PacketUtils.h>
 #include <SystemUtils.h>
 

@@ -1,14 +1,8 @@
 #pragma once
 #include <TcpReassembly.h>
 #include <HttpLayer.h>
-#include <unordered_map>
-#include<IPv4Layer.h>
-#include <EthLayer.h>
-#include <iostream>
-#include <memory>
 #include <zlib.h>
 #include <iomanip>
-#include "Config.hpp"
 #include <cstring>
 #include <variant>
 #include "SessionTable.hpp"
@@ -23,7 +17,6 @@ private:
     HttpRulesHandler& _http_rules_handler;
 
     DpiEngine();
-
 
     void processHttpRequest(const std::unique_ptr<pcpp::HttpRequestLayer>& request_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data);
     void processHttpResponse(const std::unique_ptr<pcpp::HttpResponseLayer>& response_layer, const std::string& http_msg, const pcpp::ConnectionData& tcp_data);

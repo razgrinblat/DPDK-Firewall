@@ -8,12 +8,12 @@ std::unique_ptr<SessionTable::Session> UdpSessionHandler::initUdpSession(const p
     const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
     const pcpp::UdpLayer* udp_layer = tcp_packet.getLayerOfType<pcpp::UdpLayer>();
     return std::make_unique<SessionTable::Session>(
-        SessionTable::UDP,
+        SessionTable::UDP_PROTOCOL,
        ipv4_layer->getSrcIPv4Address(),
        ipv4_layer->getDstIPv4Address(),
        udp_layer->getSrcPort(),
        udp_layer->getDstPort(),
-       SessionTable::UNKNOWN
+       SessionTable::UDP
    );
 }
 
