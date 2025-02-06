@@ -1,15 +1,10 @@
 #pragma once
 #include "SessionTable.hpp"
 #include "DpiEngine.hpp"
-#include <Packet.h>
-#include <IPv4Layer.h>
 #include <TcpLayer.h>
 #include <memory>
 #include <PacketUtils.h>
 #include <SystemUtils.h>
-#include <DpdkDeviceList.h>
-#include <DpdkDevice.h>
-#include <EthLayer.h>
 
 class TcpSessionHandler
 {
@@ -17,9 +12,10 @@ class TcpSessionHandler
 private:
     SessionTable& _session_table;
     DpiEngine& _dpi_engine;
+    PortAllocator& _port_allocator;
 
     TcpSessionHandler();
-    std::unique_ptr<SessionTable::TcpSession> initTcpSession(const pcpp::Packet& tcp_packet);
+    std::unique_ptr<SessionTable::Session> initTcpSession(const pcpp::Packet& tcp_packet) const;
     const pcpp::tcphdr& extractTcpHeader(const pcpp::Packet &tcp_packet);
 
 public:
@@ -29,6 +25,6 @@ public:
     static TcpSessionHandler& getInstance();
 
     bool processClientTcpPacket(pcpp::Packet& tcp_packet);
-    bool processInternetTcpPacket(pcpp::Packet& tcp_packet);
+    bool isValidInternetTcpPacket(pcpp::Packet& tcp_packet);
 
 };

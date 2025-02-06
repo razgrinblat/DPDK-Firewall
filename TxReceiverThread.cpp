@@ -1,66 +1,25 @@
 #include "TxReceiverThread.hpp"
 
-void TxReceiverThread::pushToTxQueue()
+void TxReceiverThread::pushPacketToQueue(std::vector<pcpp::MBufRawPacket *> &packets_to_queue) const
 {
-    if (!_packets_to_client.empty())
+    if (!packets_to_queue.empty())
     {
+        std::lock_guard lock(_queues_manager.getTxQueueMutex());
+        for (auto* packet : packets_to_queue)
         {
-            std::lock_guard lock_guard(_queues_manager.getTxQueueMutex());
-            for(const auto& packet : _packets_to_client)
-            {
-                _queues_manager.getTxQueue()->push(packet);
-            }
-        }
-    }
-}
-
-void TxReceiverThread::processReceivedPackets(std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST>& mbuf_array)
-{
-    const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),Config::MAX_RECEIVE_BURST,0);
-    _packets_to_client.clear();
-    for (int i = 0; i < num_of_packets; ++i)
-    {
-        processSinglePacket(mbuf_array[i]);
-    }
-}
-
-void TxReceiverThread::processSinglePacket(pcpp::MBufRawPacket *raw_packet)
-{
-    pcpp::Packet parsed_packet(raw_packet);
-    auto eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
-    if(eth_layer && (eth_layer->getDestMac() == Config::DPDK_DEVICE2_MAC_ADDRESS || eth_layer->getDestMac() == Config::BROADCAST_MAC_ADDRESS))
-    {
-        _packet_stats.consumePacket(parsed_packet);
-        if(parsed_packet.isPacketOfType(pcpp::ARP))
-        {
-            const pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
-            _arp_handler.handleReceivedArpPacket(*arp_layer);
-        }
-        else if (parsed_packet.isPacketOfType(pcpp::TCP))
-        {
-            if (_rule_tree.handleInboundForwarding(parsed_packet) && _session_handler.processInternetTcpPacket(parsed_packet)) // forward by firewall rules and stateful inspection
-            {
-                _packets_to_client.push_back(raw_packet);
-            }
-        }
-        else if (parsed_packet.isPacketOfType(pcpp::UDP))
-        {
-            if (_rule_tree.handleInboundForwarding(parsed_packet)) // forward by firewall rules
-            {
-                _packets_to_client.push_back(raw_packet);
-            }
-        }
-        else {
-            _packets_to_client.push_back(raw_packet);
+            _tx_queue->push(packet);
         }
     }
 }
 
 TxReceiverThread::TxReceiverThread(pcpp::DpdkDevice *tx_device) : _tx_device1(tx_device), _stop(true), _coreId(MAX_NUM_OF_CORES+1),
-                                                                  _packets_to_client(Config::MAX_RECEIVE_BURST), _queues_manager(QueuesManager::getInstance()),
-                                                                  _arp_handler(ArpHandler::getInstance()), _packet_stats(PacketStats::getInstance()),
-                                                                  _session_handler(TcpSessionHandler::getInstance()) , _rule_tree(RuleTree::getInstance())
+                                                                  _queues_manager(QueuesManager::getInstance()),
+                                                                  _rule_tree(RuleTree::getInstance()),
+                                                                  _arp_handler(ArpHandler::getInstance()),
+                                                                  _icmp_handler(IcmpHandler::getInstance()),
+                                                                  _packet_stats(PacketStats::getInstance())
 {
+    _tx_queue = _queues_manager.getTxQueue();
 }
 
 bool TxReceiverThread::run(uint32_t coreId)
@@ -69,11 +28,37 @@ bool TxReceiverThread::run(uint32_t coreId)
     _stop = false;
 
     std::array<pcpp::MBufRawPacket*,Config::MAX_RECEIVE_BURST> mbuf_array= {};
+    std::vector<pcpp::MBufRawPacket*> packets_to_queue(Config::MAX_RECEIVE_BURST);
 
     while (!_stop)
     {
-        processReceivedPackets(mbuf_array);
-        pushToTxQueue(); // Pushing packets that are intended for the client
+        packets_to_queue.clear();
+        const uint32_t num_of_packets = _tx_device1->receivePackets(mbuf_array.data(),Config::MAX_RECEIVE_BURST,0);
+
+        for (uint32_t i = 0; i < num_of_packets; ++i)
+        {
+            pcpp::Packet parsed_packet(mbuf_array[i]);
+            auto eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
+            if(eth_layer && (eth_layer->getDestMac() == Config::DPDK_DEVICE2_MAC_ADDRESS || eth_layer->getDestMac() == Config::BROADCAST_MAC_ADDRESS))
+            {
+                _packet_stats.consumePacket(parsed_packet);
+                if(parsed_packet.isPacketOfType(pcpp::ARP))
+                {
+                    const pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
+                    _arp_handler.handleReceivedArpPacket(*arp_layer);
+                }
+                else if (parsed_packet.isPacketOfType(pcpp::ICMP) && _icmp_handler.processInBoundIcmp(parsed_packet))
+                {
+                    packets_to_queue.push_back(mbuf_array[i]);
+                }
+                else if (_rule_tree.handleInboundForwarding(parsed_packet))
+                {
+                    packets_to_queue.push_back(mbuf_array[i]);
+                }
+            }
+        }
+        // Lock the queue and push all packets in a batch
+        pushPacketToQueue(packets_to_queue);
     }
     return true;
 }

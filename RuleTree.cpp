@@ -254,15 +254,17 @@ bool RuleTree::handleOutboundForwarding(const pcpp::Packet &parsed_packet)
     const std::string dst_ip = ipv4_layer->getDstIPv4Address().toString();
     std::string dst_port;
 
-    if (const pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>())
+    if (parsed_packet.isPacketOfType(pcpp::UDP))
     {
+        const pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>();
         dst_port = std::to_string(udp_layer->getDstPort());
 
         // Check if the packet is allowed by the rule tree
         return isPacketAllowed("udp", dst_ip, dst_port);
     }
-    if (const pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>())
+    if (parsed_packet.isPacketOfType(pcpp::TCP))
     {
+        const pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>();
         dst_port = std::to_string(tcp_layer->getDstPort());
 
         // Check if the packet is allowed by the rule tree
@@ -280,15 +282,17 @@ bool RuleTree::handleInboundForwarding(const pcpp::Packet &parsed_packet)
     const std::string src_ip = ipv4_layer->getSrcIPv4Address().toString();
     std::string src_port;
 
-    if (const pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>())
+    if (parsed_packet.isPacketOfType(pcpp::UDP))
     {
+        const pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>();
         src_port = std::to_string(udp_layer->getSrcPort());
 
         // Check if the packet is allowed by the rule tree
         return isPacketAllowed("udp", src_ip, src_port);
     }
-    if (const pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>())
+    if (parsed_packet.isPacketOfType(pcpp::TCP))
     {
+        const pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>();
         src_port = std::to_string(tcp_layer->getSrcPort());
 
         // Check if the packet is allowed by the rule tree

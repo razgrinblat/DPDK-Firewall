@@ -108,6 +108,7 @@ void PacketSniffer::startingCapture()
     ArpHandler& arp_handler = ArpHandler::getInstance();
     SessionTable& session_table = SessionTable::getInstance();
     ClientsManager& clients_manager = ClientsManager::getInstance();
+    PortAllocator& port_allocator = PortAllocator::getInstance();
     std::string user_input;
     std::cout << "------------------------------\n";
     std::cout << "Enter 'arp' to view ARP cache,'p' to view packet stats, 'tcp' to view TCP session cache or 'exit' to stop:\n";
@@ -123,6 +124,10 @@ void PacketSniffer::startingCapture()
         else if (user_input == "clients")
         {
             clients_manager.printClientsTable();
+        }
+        else if(user_input == "port")
+        {
+            port_allocator.printPortsTable();
         }
         else if (user_input == "p")
         {

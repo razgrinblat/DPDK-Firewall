@@ -16,6 +16,7 @@ public:
     static constexpr auto MAX_IPV4_OCTET_NUMBER = 255;
     static constexpr auto IP_OCTETS = 4;
     static constexpr auto HTTP_PORT = 80;
+    static constexpr auto DEFAULT_TTL = 64;
     static constexpr auto DEFAULT_MAX_CONTENT_LENGTH = 10240; // 10KB for max http payload
 
     //RULES FILE PATH
@@ -29,7 +30,7 @@ public:
 
     //TCP SESSIONS
     static constexpr auto MAX_SESSIONS = 1000;
-    static constexpr auto MAX_IDLE_SESSION_TIME = 15; //seconds
+    static constexpr auto MAX_IDLE_SESSION_TIME = 10; //seconds
     static constexpr auto CLEANUP_IDLE_SESSIONS_TIME = 3; //seconds
 
 
@@ -37,17 +38,15 @@ public:
     static constexpr auto CORES_TO_USE = 4;
 
     //IP ADDRESSES
-    static inline const pcpp::IPv4Address CLIENT_IP{"192.168.1.7"};
     static inline const pcpp::IPv4Address DPDK_DEVICE1_IP{"192.168.1.10"};
-    static inline const pcpp::IPv4Address DPDK_DEVICE2_IP{"192.168.1.22"}; // "192.168.1.22" or "172.20.10.8" in HOTSPOT
-    static inline const pcpp::IPv4Address ROUTER_IP{"192.168.1.1"}; // 192.168.1.1 or 172.20.10.1 in HOTSPOT
+    static inline const pcpp::IPv4Address DPDK_DEVICE2_IP{"172.20.10.8"}; // "192.168.1.22" or "172.20.10.8" in HOTSPOT
+    static inline const pcpp::IPv4Address ROUTER_IP{"172.20.10.1"}; // 192.168.1.1 or 172.20.10.1 in HOTSPOT
 
     //SUBNET MASK
-    static inline const pcpp::IPv4Address SUBNET_MASK{"255.255.255.0"}; //255.255.255.0 or 255.255.255.240 in HOTSPOT
+    static inline const pcpp::IPv4Address SUBNET_MASK{"255.255.255.240"}; //255.255.255.0 or 255.255.255.240 in HOTSPOT
 
     //MAC ADDRESSES
-    static inline const pcpp::MacAddress CLIENT_MAC_ADDRESS{"08:00:27:42:82:3b"}; // 08:00:27:42:82:3b
-    static inline const pcpp::MacAddress ROUTER_MAC_ADDRESS{"b4:ee:b4:a9:f7:e1"}; // "b4:ee:b4:a9:f7:e1" or "fa:87:f1:1a:09:64" in HOTSPOT
+    static inline const pcpp::MacAddress ROUTER_MAC_ADDRESS{"fa:87:f1:1a:09:64"}; // "b4:ee:b4:a9:f7:e1" or "fa:87:f1:1a:09:64" in HOTSPOT
     static inline const pcpp::MacAddress BROADCAST_MAC_ADDRESS{"ff:ff:ff:ff:ff:ff"};
     static inline const pcpp::MacAddress DPDK_DEVICE1_MAC_ADDRESS{"08:00:27:b4:8e:4a"};
     static inline const pcpp::MacAddress DPDK_DEVICE2_MAC_ADDRESS{"08:00:27:9c:49:2f"};

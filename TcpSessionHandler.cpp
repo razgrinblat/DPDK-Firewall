@@ -1,13 +1,15 @@
 #include "TcpSessionHandler.hpp"
 
-TcpSessionHandler::TcpSessionHandler(): _session_table(SessionTable::getInstance()), _dpi_engine(DpiEngine::getInstance())
+TcpSessionHandler::TcpSessionHandler(): _session_table(SessionTable::getInstance()),
+                                        _dpi_engine(DpiEngine::getInstance()), _port_allocator(PortAllocator::getInstance())
 {}
 
-std::unique_ptr<SessionTable::TcpSession> TcpSessionHandler::initTcpSession(const pcpp::Packet &tcp_packet)
+std::unique_ptr<SessionTable::Session> TcpSessionHandler::initTcpSession(const pcpp::Packet &tcp_packet) const
 {
     const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
     const pcpp::TcpLayer* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
-    return std::make_unique<SessionTable::TcpSession>(
+    return std::make_unique<SessionTable::Session>(
+        SessionTable::TCP,
        ipv4_layer->getSrcIPv4Address(),
        ipv4_layer->getDstIPv4Address(),
        tcp_layer->getSrcPort(),
@@ -33,7 +35,7 @@ TcpSessionHandler & TcpSessionHandler::getInstance()
 
 bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
 {
-    const uint32_t tcp_hash = hash5Tuple(&tcp_packet,false);
+    const uint32_t tcp_hash = hash5Tuple(&tcp_packet);
 
     const auto tcp_header = extractTcpHeader(tcp_packet);
     if(_session_table.isSessionExists(tcp_hash)) //session is already exists
@@ -89,21 +91,26 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
     }
     else //open a new session
     {
-        if(tcp_header.synFlag) {
-            auto new_session = initTcpSession(tcp_packet);
-            _session_table.addNewSession(tcp_hash,std::move(new_session), SessionTable::SYN_SENT);
+        if(tcp_header.synFlag)
+        {
+            _session_table.addNewSession(tcp_hash,std::move(initTcpSession(tcp_packet)), SessionTable::SYN_SENT);
         }
         else {
             return false;
         }
     }
+
     //data transfer, DPI checking
     _dpi_engine.processDpiTcpPacket(tcp_packet);
+
+    // change port to firewall port
+    const auto tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
+    tcp_layer->getTcpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(tcp_hash));
 
     return _session_table.isAllowed(tcp_hash);
 }
 
-bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet& tcp_packet)
+bool TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
 {
     const uint32_t tcp_hash = hash5Tuple(&tcp_packet,false);
 
@@ -169,11 +176,8 @@ bool TcpSessionHandler::processInternetTcpPacket(pcpp::Packet& tcp_packet)
     else
     {
         const auto ip_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
-         if(!_session_table.isDstIpInCache(ip_layer->getSrcIPv4Address()))
-         {
-             std::cerr << "Blocked Unexpected TCP packet from IP: " << ip_layer->getSrcIPv4Address() << std::endl;
-             return false;
-         }
+        std::cerr << "Blocked Unexpected TCP packet from IP: " << ip_layer->getSrcIPv4Address() << std::endl;
+        return false;
     }
     //data transfer, DPI checking
     _dpi_engine.processDpiTcpPacket(tcp_packet);

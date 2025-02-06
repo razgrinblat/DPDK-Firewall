@@ -103,6 +103,10 @@ add_executable(my_firewall main.cpp
         ClientsManager.hpp
         PortAllocator.cpp
         PortAllocator.hpp
+        UdpSessionHandler.cpp
+        UdpSessionHandler.hpp
+        IcmpHandler.cpp
+        IcmpHandler.hpp
 )
 
 # Link DPDK and PcapPlusPlus libraries explicitly

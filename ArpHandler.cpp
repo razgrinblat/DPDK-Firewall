@@ -1,14 +1,11 @@
 #include "ArpHandler.hpp"
 
 ArpHandler::ArpHandler():_stop_flag(false), _packet_stats(PacketStats::getInstance())
-{
-}
+{}
 
 ArpHandler::~ArpHandler()
 {
     stopThreads();
-    _cache.clear();
-    _unresolved_arp_requests.clear();
 }
 
 ArpHandler & ArpHandler::getInstance()
@@ -21,12 +18,13 @@ void ArpHandler::stopThreads()
 {
     _stop_flag.store(true);
 
-    for (auto& thread : _threads) {
-        if(thread.joinable()) {
+    for (auto& thread : _threads)
+    {
+        if(thread.joinable())
+        {
             thread.join();
         }
     }
-    _threads.clear();
 }
 
 void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
@@ -42,7 +40,7 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
                   + arp_layer.getSenderMacAddress().toString());
     }
     {
-        std::lock_guard lock_guard(_cache_mutex);
+        std::lock_guard lock(_cache_mutex);
         _cache[arp_layer.getSenderIpAddr().toString()] = arp_layer.getSenderMacAddress().toString(); //update or add the ARP cache
     }
     sendArpResponsePacket(arp_layer.getSenderIpAddr(),arp_layer.getSenderMacAddress(), Config::DPDK_DEVICE_2);
@@ -124,11 +122,11 @@ void ArpHandler::printArpCache()
 void ArpHandler::sendArpResponsePacket(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac, const uint16_t sender_device_id) const
 {
 
-    const auto& device_mac = (sender_device_id == Config::DPDK_DEVICE_1) ? Config::DPDK_DEVICE1_MAC_ADDRESS : Config::DPDK_DEVICE2_MAC_ADDRESS;
-    const auto& device_ip = (sender_device_id == Config::DPDK_DEVICE_1) ? Config::DPDK_DEVICE1_IP : Config::DPDK_DEVICE2_IP;
+    const auto& source_mac = (sender_device_id == Config::DPDK_DEVICE_1) ? Config::DPDK_DEVICE1_MAC_ADDRESS : Config::DPDK_DEVICE2_MAC_ADDRESS;
+    const auto& source_ip = (sender_device_id == Config::DPDK_DEVICE_1) ? Config::DPDK_DEVICE1_IP : Config::DPDK_DEVICE2_IP;
 
-    pcpp::EthLayer eth_layer(device_mac,target_mac,PCPP_ETHERTYPE_ARP);
-    pcpp::ArpLayer arp_layer(pcpp::ARP_REPLY,device_mac,target_mac,device_ip,target_ip);
+    pcpp::EthLayer eth_layer(source_mac,target_mac,PCPP_ETHERTYPE_ARP);
+    pcpp::ArpLayer arp_layer(pcpp::ARP_REPLY,source_mac,target_mac,source_ip,target_ip);
     pcpp::Packet arp_response_packet(Config::DEFAULT_PACKET_SIZE);
     arp_response_packet.addLayer(&eth_layer);
     arp_response_packet.addLayer(&arp_layer);
@@ -136,7 +134,7 @@ void ArpHandler::sendArpResponsePacket(const pcpp::IPv4Address& target_ip, const
     const auto device =  pcpp::DpdkDeviceList::getInstance().getDeviceByPort(sender_device_id);
     if (!device->sendPacket(arp_response_packet))
     {
-        std::cerr << "Error: Couldn't send the ARP response.";
+        std::cerr << "Error: Couldn't send the ARP response." << std::endl;
     }
     else {
         _packet_stats.consumePacket(arp_response_packet);

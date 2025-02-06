@@ -1,20 +1,22 @@
 #include "SessionTable.hpp"
 
-SessionTable::SessionTable(): _lru_list(Config::MAX_SESSIONS),_stop_flag(false)
+SessionTable::SessionTable(): _lru_list(Config::MAX_SESSIONS), _stop_flag(false), _port_allocator(PortAllocator::getInstance())
 {
     _clean_up_thread = std::thread(&SessionTable::runCleanUpThread,this);
 }
 
 void SessionTable::cleanUpIdleSessions()
 {
-    const auto current_time = std::chrono::high_resolution_clock::now();
-    std::lock_guard lock_guard(_cache_mutex);
+    const auto current_time = std::chrono::steady_clock::now();
+
+    std::unique_lock lock(_cache_mutex);
     for (auto it = _session_cache.begin() ; it !=_session_cache.end();)
     {
-        const std::unique_ptr<TcpSession>& session = it->second;
+        const std::unique_ptr<Session>& session = it->second;
         const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
         if(time_diff >= Config::MAX_IDLE_SESSION_TIME && (session->current_state != ESTABLISHED || session->isAllowed == false))
         {
+            _port_allocator.releasePort(session->firewall_port);
             _lru_list.eraseElement(it->first);
             it = _session_cache.erase(it);
         }
@@ -50,104 +52,99 @@ void SessionTable::runCleanUpThread()
 
 bool SessionTable::isSessionExists(const uint32_t session_hash)
 {
-    std::lock_guard lock_guard(_cache_mutex);
-    const auto it = _session_cache.find(session_hash);
-    return it != _session_cache.end();
+    std::shared_lock lock(_cache_mutex);
+    return _session_cache.find(session_hash) != _session_cache.end();
 }
 
-bool SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<TcpSession> session, const TcpState& current_state)
+void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState& current_state)
 {
-    if(!isSessionExists(session_hash))
+    std::unique_lock lock_guard(_cache_mutex);
+
+    uint32_t session_key_to_close;
+    const int result = _lru_list.put(session_hash,&session_key_to_close);
+    if(result)
     {
-        uint32_t session_key_to_close;
-        {
-            std::lock_guard lock_guard(_cache_mutex);
-            const int result = _lru_list.put(session_hash,&session_key_to_close);
-            if(result)
-            {
-                _session_cache.erase(session_key_to_close); //session cache is full. need to delete the least active connection
-            }
-            session->last_active_time = std::chrono::high_resolution_clock::now();
-            session->current_state = current_state;
-            _session_cache[session_hash] = std::unique_ptr<TcpSession>(std::move(session));
-        }
-        return true;
+        _session_cache.erase(session_key_to_close); //session cache is full. need to delete the least active connection
     }
-    return false;
+    session->last_active_time = std::chrono::steady_clock::now();
+    session->current_state = current_state;
+    session->firewall_port = _port_allocator.allocatePort(session->source_ip, session->source_port);
+    _session_cache[session_hash] = std::move(session);
 }
 
 const SessionTable::TcpState& SessionTable::getCurrentState(const uint32_t session_hash)
 {
-    if(isSessionExists(session_hash))
-    {
-        std::lock_guard lock_guard(_cache_mutex);
-        return _session_cache[session_hash]->current_state;
+    std::shared_lock lock(_cache_mutex);
+    auto it = _session_cache.find(session_hash);
+    if (it != _session_cache.end()) {
+        return it->second->current_state;
     }
-    throw std::runtime_error("session" + std::to_string(session_hash) + "is not exist!");
+    throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
+}
+
+uint16_t SessionTable::getFirewallPort(const uint32_t session_hash)
+{
+    std::shared_lock lock(_cache_mutex);
+    auto it = _session_cache.find(session_hash);
+    if (it != _session_cache.end()) {
+        return it->second->firewall_port;
+    }
+    throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
 }
 
 void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state)
 {
-    if(isSessionExists(session_hash))
+    std::unique_lock lock(_cache_mutex);
+    auto it = _session_cache.find(session_hash);
+    if (it != _session_cache.end())
     {
-        std::lock_guard lock_guard(_cache_mutex);
-        _session_cache[session_hash]->current_state = new_state;
-        _session_cache[session_hash]->last_active_time = std::chrono::high_resolution_clock::now();
+        it->second->current_state = new_state;
+        it->second->last_active_time = std::chrono::steady_clock::now();
     }
-    else {
-        throw std::runtime_error("session" + std::to_string(session_hash) + "is not exist!");
-    }
-}
-
-bool SessionTable::isDstIpInCache(const pcpp::IPv4Address &dst_ip_to_find)
-{
-    std::lock_guard lock_guard(_cache_mutex);
-    for (const auto& [key, session] : _session_cache)
+    else
     {
-        if (session->dst_ip == dst_ip_to_find)
-        {
-            return true;
-        }
+        throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
     }
-    return false;
 }
 
 bool SessionTable::isAllowed(const uint32_t session_hash)
 {
-    if (isSessionExists(session_hash))
-    {
-        std::lock_guard lock_guard(_cache_mutex);
-        return _session_cache[session_hash]->isAllowed;
+    std::shared_lock lock(_cache_mutex);
+    auto it = _session_cache.find(session_hash);
+    if (it != _session_cache.end()) {
+        return it->second->isAllowed;
     }
+    throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
 }
 
 void SessionTable::blockSession(const uint32_t session_hash)
 {
-    if (isSessionExists(session_hash))
+    std::unique_lock lock(_cache_mutex);
+    auto it = _session_cache.find(session_hash);
+    if (it != _session_cache.end())
     {
-        std::lock_guard lock_guard(_cache_mutex);
-        _session_cache[session_hash]->isAllowed = false;
-    }
-    else {
-        throw std::runtime_error("session" + std::to_string(session_hash) + "is not exist!");
+        it->second->isAllowed = false;
+    } else
+    {
+        throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
     }
 }
 
 void SessionTable::printSessionCache()
 {
-    std::lock_guard lock_guard(_cache_mutex); // Ensure thread safety during access
-    // Print the header
+    std::shared_lock lock(_cache_mutex);
     std::cout << std::setw(15) << "State"
               << std::setw(20) << "Destination IP"
               << std::setw(15) << "Ports"
-              << std::setw(30) << "Last Active Time" << std::endl;
+              << std::setw(30) << "Idle Time (sec)" << std::endl;
     std::cout << std::string(80, '-') << std::endl;
 
-    // Iterate through the session cache
-    for (const auto& pair : _session_cache) {
-        const TcpSession* session = pair.second.get();
+    const auto current_time = std::chrono::steady_clock::now();
 
-        // Convert TcpState to string
+    for (const auto& pair : _session_cache)
+    {
+        const Session* session = pair.second.get();
+
         std::string state;
         switch (session->current_state) {
             case SYN_SENT:      state = "SYN_SENT"; break;
@@ -161,22 +158,17 @@ void SessionTable::printSessionCache()
             default:            state = "UNKNOWN"; break;
         }
 
-        // Convert `last_active_time` to HH:MM:SS format and print session details
-        auto last_active_time = session->last_active_time;
-        // Adjust high_resolution_clock to system_clock
-        auto now_system_time = std::chrono::system_clock::now() +
-                               (last_active_time - std::chrono::high_resolution_clock::now());
-        std::time_t last_active_time_t = std::chrono::system_clock::to_time_t(now_system_time);
-        // Format time to HH:MM:SS
-        const std::tm* tm_info = std::localtime(&last_active_time_t);
-        std::ostringstream time_stream;
-        time_stream << std::put_time(tm_info, "%H:%M:%S");
+        // Calculate how many seconds this session has been idle
+        const auto idle_duration = std::chrono::duration_cast<std::chrono::seconds>(
+            current_time - session->last_active_time
+        ).count();
 
         std::string port_info = std::to_string(session->source_port) + " -> " + std::to_string(session->dst_port);
+
         std::cout << std::setw(15) << state
                   << std::setw(20) << session->dst_ip.toString()
                   << std::setw(15) << port_info
-                  << std::setw(20) << time_stream.str() << std::endl;
+                  << std::setw(15) << idle_duration << std::endl;
     }
-    std::cout << "Total sessions: " << _session_cache.size() << std::endl;
+    std::cout << "Total Active sessions: " << _session_cache.size() << std::endl;
 }
