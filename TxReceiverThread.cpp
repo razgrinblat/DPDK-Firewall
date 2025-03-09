@@ -38,7 +38,7 @@ bool TxReceiverThread::run(uint32_t coreId)
         for (uint32_t i = 0; i < num_of_packets; ++i)
         {
             pcpp::Packet parsed_packet(mbuf_array[i]);
-            auto eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
+            const auto eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
             if(eth_layer && (eth_layer->getDestMac() == Config::DPDK_DEVICE2_MAC_ADDRESS || eth_layer->getDestMac() == Config::BROADCAST_MAC_ADDRESS))
             {
                 _packet_stats.consumePacket(parsed_packet);

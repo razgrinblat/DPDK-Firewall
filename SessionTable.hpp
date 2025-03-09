@@ -48,10 +48,10 @@ public:
     static SessionTable& getInstance();
 
     bool isSessionExists(uint32_t session_hash);
-    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, const TcpState& current_state = UNKNOWN);
+    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, const TcpState& current_state);
     const TcpState& getCurrentState(uint32_t session_hash);
     uint16_t getFirewallPort(uint32_t session_hash);
-    void updateSession(uint32_t session_hash, const TcpState& new_state = UNKNOWN);
+    void updateSession(uint32_t session_hash, const TcpState& new_state);
     bool isAllowed(uint32_t session_hash);
     void blockSession(uint32_t session_hash);
     void printSessionCache();

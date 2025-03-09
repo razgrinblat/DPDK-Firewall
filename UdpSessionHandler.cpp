@@ -29,13 +29,13 @@ void UdpSessionHandler::processClientUdpPacket(pcpp::Packet &udp_packet)
 
     if (_session_table.isSessionExists(udp_hash))
     {
-        _session_table.updateSession(udp_hash);
+        _session_table.updateSession(udp_hash,SessionTable::UDP);
         // change port to firewall port
         const auto udp_layer = udp_packet.getLayerOfType<pcpp::UdpLayer>();
         udp_layer->getUdpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(udp_hash));
     }
     else {
-        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)));
+        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)),SessionTable::UDP);
     }
 }
 
@@ -45,7 +45,7 @@ bool UdpSessionHandler::isValidInternetUdpPacket(pcpp::Packet &udp_packet)
 
     if (_session_table.isSessionExists(udp_hash))
     {
-        _session_table.updateSession(udp_hash);
+        _session_table.updateSession(udp_hash, SessionTable::UDP);
         return true;
     }
     const auto ip_layer = udp_packet.getLayerOfType<pcpp::IPv4Layer>();

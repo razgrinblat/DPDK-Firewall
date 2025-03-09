@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories(/usr/local/include/)  # Adjust for DPDK headers
 include_directories(/usr/local/include/pcapplusplus)    # PcapPlusPlus headers
 include_directories(/usr/local/include/jsoncpp)   #Json header path
-include_directories(usr/include/websocketpp)
+include_directories(/usr/include/websocketpp)
 include_directories(/usr/include/boost) # Boost is required for Websocket
 find_package(ZLIB REQUIRED) # Find Zlib on the system
 find_package(OpenSSL REQUIRED)

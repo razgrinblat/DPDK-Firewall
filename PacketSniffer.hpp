@@ -1,13 +1,9 @@
 #pragma once
-#include "DpdkDevice.h"
-#include  "DpdkDeviceList.h"
-#include "PacketStats.hpp"
-#include "PcapLiveDeviceList.h"
 #include "RxReceiverThread.hpp"
 #include "RxSenderThread.hpp"
 #include "TxReceiverThread.hpp"
 #include "TxSenderThread.hpp"
-#include "HttpRulesHandler.hpp"
+#include "WebSocketClient.hpp"
 
 class PacketSniffer
 {

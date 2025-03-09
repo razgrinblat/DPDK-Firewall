@@ -25,7 +25,8 @@ void PacketSniffer::openDpdkDevices()
     }
 }
 
-void PacketSniffer::printDeviceInfo() const {
+void PacketSniffer::printDeviceInfo() const
+{
     auto device = _device1;
     for(int i=0; i<=1; i++)
     {
@@ -109,6 +110,7 @@ void PacketSniffer::startingCapture()
     SessionTable& session_table = SessionTable::getInstance();
     ClientsManager& clients_manager = ClientsManager::getInstance();
     PortAllocator& port_allocator = PortAllocator::getInstance();
+
     std::string user_input;
     std::cout << "------------------------------\n";
     std::cout << "Enter 'arp' to view ARP cache,'p' to view packet stats, 'tcp' to view TCP session cache or 'exit' to stop:\n";

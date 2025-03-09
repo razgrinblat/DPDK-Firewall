@@ -235,7 +235,6 @@ std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(cons
             {
                 return httpLayerVariant{std::move(http_response)};;
             }
-            std::cout << "=================chunked===================" << std::endl;
             return {};
         }
         return httpLayerVariant{std::move(http_response)};; // no body

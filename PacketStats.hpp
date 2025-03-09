@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 #include "Packet.h"
+#include "WebSocketClient.hpp"
+#include "json/json.h"
 
 class PacketStats
 {
@@ -18,6 +20,8 @@ private:
     uint32_t _sshPacketCount;
     uint32_t _ftpPacketCount;
 
+    WebSocketClient& _ws_client;
+
     PacketStats();
 
 public:
@@ -30,6 +34,8 @@ public:
     void consumePacket(const pcpp::Packet& packet);
 
     void printToConsole() const;
+
+    void sendPacketStats();
 
 
 };
