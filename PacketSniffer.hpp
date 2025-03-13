@@ -14,12 +14,22 @@ private:
     bool _keep_running;
     RuleTree& _rule_tree;
     HttpRulesHandler& _http_rules_handler;
+    WebSocketClient& _ws_client;
+    std::thread _ws_manager_thread;
+
+    PacketStats& _packet_stats;
+    ArpHandler& _arp_handler;
+    SessionTable& _session_table;
+    ClientsManager& _clients_manager;
+    PortAllocator& _port_allocator;
+
 
     void buildFirewallRules() const;
     void openDpdkDevices();
-    void printDeviceInfo() const;
     static void onApplicationInterruptedCallBack(void* cookie);
     void startingDpdkThreads();
+    void startingWsThreads();
+    void runWsManagerThread();
     void closeDevices();
 
 public:

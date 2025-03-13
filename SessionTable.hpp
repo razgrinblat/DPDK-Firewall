@@ -12,6 +12,8 @@
 #include <iomanip>
 #include <Packet.h>
 #include "PortAllocator.hpp"
+#include "WebSocketClient.hpp"
+#include "json/json.h"
 
 class SessionTable
 {
@@ -55,6 +57,7 @@ public:
     bool isAllowed(uint32_t session_hash);
     void blockSession(uint32_t session_hash);
     void printSessionCache();
+    void sendTableToBackend();
 
 
 private:
@@ -64,6 +67,7 @@ private:
     std::atomic<bool> _stop_flag;
     std::thread _clean_up_thread;
     PortAllocator& _port_allocator;
+    WebSocketClient& _ws_client;
 
     SessionTable();
     void cleanUpIdleSessions();

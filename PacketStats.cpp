@@ -1,6 +1,6 @@
 #include "PacketStats.hpp"
 
-PacketStats::PacketStats() : _ethPacketCount(0), _ipv4PacketCount(0), _ipv6PacketCount(0),
+PacketStats::PacketStats() : _ethPacketCount(0), _ipv4PacketCount(0),
                              _tcpPacketCount(0), _udpPacketCount(0), _dnsPacketCount(0), _httpPacketCount(0),
                              _sslPacketCount(0), _arpPacketCount(0), _icmpPacketCount(0), _sshPacketCount(0),
                              _ftpPacketCount(0), _ws_client(WebSocketClient::getInstance()) {}
@@ -17,8 +17,6 @@ void PacketStats::consumePacket(const pcpp::Packet &packet)
         _ethPacketCount++;
     if (packet.isPacketOfType(pcpp::IPv4))
         _ipv4PacketCount++;
-    if (packet.isPacketOfType(pcpp::IPv6))
-        _ipv6PacketCount++;
     if (packet.isPacketOfType(pcpp::TCP))
         _tcpPacketCount++;
     if (packet.isPacketOfType(pcpp::UDP))
@@ -45,7 +43,6 @@ void PacketStats::printToConsole() const
     std::cout
             << "Ethernet packet count: " << _ethPacketCount << std::endl
             << "IPv4 packet count:     " << _ipv4PacketCount << std::endl
-            << "IPv6 packet count:     " << _ipv6PacketCount << std::endl
             << "TCP packet count:      " << _tcpPacketCount << std::endl
             << "UDP packet count:      " << _udpPacketCount << std::endl
             << "DNS packet count:      " << _dnsPacketCount << std::endl
@@ -57,26 +54,25 @@ void PacketStats::printToConsole() const
             << "FTP packet count:      " << _ftpPacketCount << std::endl;
 }
 
-void PacketStats::sendPacketStats()
+void PacketStats::sendPacketStatsToBackend()
 {
-    Json::Value packetStats;
-    packetStats["type"] = "packet stats"; // Title field
-    packetStats["ethPacketCount"] = ++_ethPacketCount;
-    packetStats["ipv4PacketCount"] = ++_ipv4PacketCount;
-    packetStats["ipv6PacketCount"] = _ipv6PacketCount;
-    packetStats["tcpPacketCount"] = _tcpPacketCount;
-    packetStats["udpPacketCount"] = _udpPacketCount;
-    packetStats["dnsPacketCount"] = _dnsPacketCount;
-    packetStats["httpPacketCount"] = ++_httpPacketCount;
-    packetStats["sslPacketCount"] = _sslPacketCount;
-    packetStats["arpPacketCount"] = _arpPacketCount;
-    packetStats["icmpPacketCount"] = _icmpPacketCount;
-    packetStats["sshPacketCount"] = _sshPacketCount;
-    packetStats["ftpPacketCount"] = _ftpPacketCount;
+    Json::Value packet_stats;
+    packet_stats["type"] = "packet stats"; // Title field
+    packet_stats["ethPacketCount"] = _ethPacketCount;
+    packet_stats["ipv4PacketCount"] = _ipv4PacketCount;
+    packet_stats["tcpPacketCount"] = _tcpPacketCount;
+    packet_stats["udpPacketCount"] = _udpPacketCount++;
+    packet_stats["dnsPacketCount"] = _dnsPacketCount;
+    packet_stats["httpPacketCount"] = _httpPacketCount;
+    packet_stats["sslPacketCount"] = _sslPacketCount;
+    packet_stats["arpPacketCount"] = _arpPacketCount;
+    packet_stats["icmpPacketCount"] = _icmpPacketCount++;
+    packet_stats["sshPacketCount"] = _sshPacketCount;
+    packet_stats["ftpPacketCount"] = _ftpPacketCount;
 
     // Convert JSON object to string
     const Json::StreamWriterBuilder writer;
-    const std::string message = writeString(writer, packetStats);
+    const std::string message = writeString(writer, packet_stats);
 
     // Send message via WebSocket
     _ws_client.send(message);

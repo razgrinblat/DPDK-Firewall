@@ -25,21 +25,6 @@ void PacketSniffer::openDpdkDevices()
     }
 }
 
-void PacketSniffer::printDeviceInfo() const
-{
-    auto device = _device1;
-    for(int i=0; i<=1; i++)
-    {
-        std::cout
-    << "Interface info: " << std::endl
-    << "   Interface name: " << device->getDeviceName() << std::endl
-    << "   Interface ID: " << device->getDeviceId() << std::endl
-    << "   MAC address: " << device->getMacAddress() << std::endl
-    << "   Default PMD name (Driver Name): " << device->getPMDName() << std::endl;
-        device = _device2;
-    }
-}
-
 void PacketSniffer::onApplicationInterruptedCallBack(void* cookie)
 {
      bool* keep_running = static_cast<bool*>(cookie);
@@ -68,6 +53,22 @@ void PacketSniffer::startingDpdkThreads()
     }
 }
 
+void PacketSniffer::startingWsThreads()
+{
+    _ws_client.start("ws://192.168.1.28:8080/firewall");
+    _ws_manager_thread = std::thread(&PacketSniffer::runWsManagerThread,this);
+}
+
+void PacketSniffer::runWsManagerThread()
+{
+    while (_keep_running)
+    {
+        _packet_stats.sendPacketStatsToBackend();
+        _session_table.sendTableToBackend();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
 void PacketSniffer::closeDevices()
 {
     if (_device1 != nullptr && _device1->isOpened())
@@ -83,33 +84,32 @@ void PacketSniffer::closeDevices()
 }
 
 PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true),
-_rule_tree(RuleTree::getInstance()), _http_rules_handler(HttpRulesHandler::getInstance())
+_rule_tree(RuleTree::getInstance()),_http_rules_handler(HttpRulesHandler::getInstance()), _ws_client(WebSocketClient::getInstance()),
+_packet_stats(PacketStats::getInstance()), _arp_handler(ArpHandler::getInstance()), _session_table(SessionTable::getInstance()),
+_clients_manager(ClientsManager::getInstance()), _port_allocator(PortAllocator::getInstance())
 {
     buildFirewallRules();
     openDpdkDevices();
-    printDeviceInfo();
     startingDpdkThreads();
+    startingWsThreads();
 }
 
 PacketSniffer::~PacketSniffer()
 {
+    if (_ws_manager_thread.joinable())
+    {
+        _ws_manager_thread.join();
+    }
     pcpp::DpdkDeviceList::getInstance().stopDpdkWorkerThreads();
     for (const auto* thread : _workers_threads) {
         delete thread;
     }
-    _workers_threads.clear();
     closeDevices();
 }
 
 void PacketSniffer::startingCapture()
 {
     std::cout << "starting capturing packets...\n";
-
-    const PacketStats& packet_stats = PacketStats::getInstance();
-    ArpHandler& arp_handler = ArpHandler::getInstance();
-    SessionTable& session_table = SessionTable::getInstance();
-    ClientsManager& clients_manager = ClientsManager::getInstance();
-    PortAllocator& port_allocator = PortAllocator::getInstance();
 
     std::string user_input;
     std::cout << "------------------------------\n";
@@ -121,24 +121,24 @@ void PacketSniffer::startingCapture()
         std::cout << "------------------------------\n";
         if (user_input == "arp")
         {
-            arp_handler.printArpCache();
+            _arp_handler.printArpCache();
         }
         else if (user_input == "clients")
         {
-            clients_manager.printClientsTable();
+            _clients_manager.printClientsTable();
         }
         else if(user_input == "port")
         {
-            port_allocator.printPortsTable();
+            _port_allocator.printPortsTable();
         }
         else if (user_input == "p")
         {
             std::cout << "Displaying Packet Statistics:\n";
-            packet_stats.printToConsole();
+            _packet_stats.printToConsole();
         }
         else if (user_input == "tcp")
         {
-            session_table.printSessionCache();
+            _session_table.printSessionCache();
         }
         else if(user_input == "exit")
         {

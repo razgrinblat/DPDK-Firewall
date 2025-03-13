@@ -1,6 +1,7 @@
 #include "SessionTable.hpp"
 
-SessionTable::SessionTable(): _lru_list(Config::MAX_SESSIONS), _stop_flag(false), _port_allocator(PortAllocator::getInstance())
+SessionTable::SessionTable(): _lru_list(Config::MAX_SESSIONS), _stop_flag(false),
+_port_allocator(PortAllocator::getInstance()), _ws_client(WebSocketClient::getInstance())
 {
     _clean_up_thread = std::thread(&SessionTable::runCleanUpThread,this);
 }
@@ -29,7 +30,8 @@ void SessionTable::cleanUpIdleSessions()
 SessionTable::~SessionTable()
 {
     _stop_flag.store(true);
-    if (_clean_up_thread.joinable()) {
+    if (_clean_up_thread.joinable())
+    {
         _clean_up_thread.join();
     }
     _session_cache.clear();
@@ -143,10 +145,10 @@ void SessionTable::printSessionCache()
 
     for (const auto& pair : _session_cache)
     {
-        const Session* session = pair.second.get();
+        const Session& session = *pair.second;
 
         std::string state;
-        switch (session->current_state) {
+        switch (session.current_state) {
             case SYN_SENT:      state = "SYN_SENT"; break;
             case SYN_RECEIVED:  state = "SYN_RECEIVED"; break;
             case ESTABLISHED:   state = "ESTABLISHED"; break;
@@ -161,15 +163,71 @@ void SessionTable::printSessionCache()
 
         // Calculate how many seconds this session has been idle
         const auto idle_duration = std::chrono::duration_cast<std::chrono::seconds>(
-            current_time - session->last_active_time
+            current_time - session.last_active_time
         ).count();
 
-        std::string port_info = std::to_string(session->source_port) + " -> " + std::to_string(session->dst_port);
+        std::string port_info = std::to_string(session.source_port) + " -> " + std::to_string(session.dst_port);
 
         std::cout << std::setw(15) << state
-                  << std::setw(20) << session->dst_ip.toString()
+                  << std::setw(20) << session.dst_ip.toString()
                   << std::setw(15) << port_info
                   << std::setw(15) << idle_duration << std::endl;
     }
     std::cout << "Total Active sessions: " << _session_cache.size() << std::endl;
+}
+
+void SessionTable::sendTableToBackend()
+{
+
+    Json::Value active_sessions;
+    active_sessions["type"] = "connections update";
+
+    Json::Value tcp_sessions(Json::arrayValue);
+    Json::Value udp_sessions(Json::arrayValue);
+
+    std::shared_lock lock(_cache_mutex);
+
+    for (const auto& pair : _session_cache)
+    {
+        const Session& session = *pair.second;
+
+        if (session.protocol == TCP_PROTOCOL)
+        {
+            Json::Value tcp_element;
+            tcp_element["src_ip"] = session.source_ip.toString();
+            tcp_element["dst_ip"] = session.dst_ip.toString();
+            tcp_element["src_port"] = std::to_string(session.source_port);
+            tcp_element["dst_port"] = std::to_string(session.dst_port);
+            switch (session.current_state) {
+                case SYN_SENT:      tcp_element["state"] = "SYN_SENT"; break;
+                case SYN_RECEIVED:  tcp_element["state"] = "SYN_RECEIVED"; break;
+                case ESTABLISHED:   tcp_element["state"] = "ESTABLISHED"; break;
+                case FIN_WAIT1:     tcp_element["state"] = "FIN_WAIT1"; break;
+                case FIN_WAIT2:     tcp_element["state"] = "FIN_WAIT2"; break;
+                case CLOSE_WAIT:    tcp_element["state"] = "CLOSE_WAIT"; break;
+                case TIME_WAIT:     tcp_element["state"] = "TIME_WAIT"; break;
+                case LAST_ACK:      tcp_element["state"] = "LAST_ACK";  break;
+                default:            tcp_element["state"] = "UNKNOWN"; break;
+            }
+            tcp_sessions.append(tcp_element);
+        }
+        else
+        {
+            Json::Value udp_element;
+            udp_element["src_ip"] = session.source_ip.toString();
+            udp_element["dst_ip"] = session.dst_ip.toString();
+            udp_element["src_port"] = std::to_string(session.source_port);
+            udp_element["dst_port"] = std::to_string(session.dst_port);
+            udp_sessions.append(udp_element);
+        }
+    }
+
+    active_sessions["tcp"] = tcp_sessions;
+    active_sessions["udp"] = udp_sessions;
+
+    // Convert JSON object to string
+    const Json::StreamWriterBuilder writer;
+    const std::string message = writeString(writer, active_sessions);
+    // Send message via WebSocket
+    _ws_client.send(message);
 }

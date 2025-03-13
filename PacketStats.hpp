@@ -9,7 +9,6 @@ class PacketStats
 private:
     uint32_t _ethPacketCount;
     uint32_t _ipv4PacketCount;
-    uint32_t _ipv6PacketCount;
     uint32_t _tcpPacketCount;
     uint32_t _udpPacketCount;
     uint32_t _dnsPacketCount;
@@ -35,7 +34,7 @@ public:
 
     void printToConsole() const;
 
-    void sendPacketStats();
+    void sendPacketStatsToBackend();
 
 
 };
