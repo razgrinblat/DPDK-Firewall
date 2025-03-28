@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
 
+include_directories(${PROJECT_SOURCE_DIR}/include)
+
 # Include DPDK headers
 include_directories(/usr/local/include/)  # Adjust for DPDK headers
 include_directories(/usr/local/include/pcapplusplus)    # PcapPlusPlus headers
@@ -58,56 +60,11 @@ set(BOOST_LIBRARIES
         boost_thread
 )
 
+file(GLOB_RECURSE SRC_FILES "${PROJECT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE HEADER_FILES "${PROJECT_SOURCE_DIR}/include/*.hpp")
+
 # Add the executable
-add_executable(my_firewall main.cpp
-        PacketSniffer.cpp
-        PacketSniffer.hpp
-        PacketStats.cpp
-        PacketStats.hpp
-        QueuesManager.cpp
-        QueuesManager.hpp
-        RxReceiverThread.cpp
-        RxReceiverThread.hpp
-        RxSenderThread.cpp
-        RxSenderThread.hpp
-        TxReceiverThread.cpp
-        TxReceiverThread.hpp
-        TxSenderThread.cpp
-        TxSenderThread.hpp
-        Config.hpp
-        ArpHandler.cpp
-        ArpHandler.hpp
-        SessionTable.cpp
-        SessionTable.hpp
-        TcpSessionHandler.cpp
-        TcpSessionHandler.hpp
-        IpRulesParser.cpp
-        IpRulesParser.hpp
-        RuleTree.cpp
-        RuleTree.hpp
-        InotifyWrapper.cpp
-        InotifyWrapper.hpp
-        Rule.cpp
-        Rule.hpp
-        DpiEngine.cpp
-        DpiEngine.hpp
-        RulesParser.cpp
-        RulesParser.hpp
-        HttpRulesParser.cpp
-        HttpRulesParser.hpp
-        HttpRulesHandler.cpp
-        HttpRulesHandler.hpp
-        WebSocketClient.cpp
-        WebSocketClient.hpp
-        ClientsManager.cpp
-        ClientsManager.hpp
-        PortAllocator.cpp
-        PortAllocator.hpp
-        UdpSessionHandler.cpp
-        UdpSessionHandler.hpp
-        IcmpHandler.cpp
-        IcmpHandler.hpp
-)
+add_executable(my_firewall ${SRC_FILES} ${HEADER_FILES})
 
 # Link DPDK and PcapPlusPlus libraries explicitly
 target_link_libraries(my_firewall
