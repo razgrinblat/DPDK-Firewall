@@ -40,11 +40,6 @@ bool RxReceiverThread::run(uint32_t coreId)
         for(uint32_t i = 0; i < num_of_packets; ++i)
         {
             pcpp::Packet parsed_packet(mbuf_array[i]);
-            const auto ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
-            if ( ipv4_layer && ipv4_layer->getSrcIPv4Address() == Config::DPDK_DEVICE2_IP)
-            {
-                continue;
-            }
             _clients_manager.processClientPacket(parsed_packet);
             _packet_stats.consumePacket(parsed_packet);
             if (parsed_packet.isPacketOfType(pcpp::ARP)) // handle ARP requests from clients

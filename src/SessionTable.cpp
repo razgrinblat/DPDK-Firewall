@@ -52,13 +52,20 @@ void SessionTable::runCleanUpThread()
     }
 }
 
+double SessionTable::calculateAvgPacketSize(const double current_avg, const uint32_t sent_packet_count,
+                                            const uint32_t received_packet_count, const uint32_t packet_size)
+{
+    const uint32_t total_packets = received_packet_count + sent_packet_count;
+    return current_avg + (static_cast<double>(packet_size) - current_avg) / static_cast<double>(total_packets);
+}
+
 bool SessionTable::isSessionExists(const uint32_t session_hash)
 {
     std::shared_lock lock(_cache_mutex);
     return _session_cache.find(session_hash) != _session_cache.end();
 }
 
-void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState& current_state)
+void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState& current_state, const uint32_t packet_size)
 {
     std::unique_lock lock_guard(_cache_mutex);
 
@@ -71,6 +78,8 @@ void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Se
     session->last_active_time = std::chrono::steady_clock::now();
     session->current_state = current_state;
     session->firewall_port = _port_allocator.allocatePort(session->source_ip, session->source_port);
+    session->sent_packet_count++;
+    session->avg_packet_size = calculateAvgPacketSize(session->avg_packet_size,session->sent_packet_count, session->received_packet_count, packet_size);
     _session_cache[session_hash] = std::move(session);
 }
 
@@ -94,14 +103,17 @@ uint16_t SessionTable::getFirewallPort(const uint32_t session_hash)
     throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
 }
 
-void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state)
+void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state,const uint32_t packet_size, const bool is_outbound)
 {
     std::unique_lock lock(_cache_mutex);
     auto it = _session_cache.find(session_hash);
     if (it != _session_cache.end())
     {
-        it->second->current_state = new_state;
-        it->second->last_active_time = std::chrono::steady_clock::now();
+        const auto& session = it->second;
+        session->current_state = new_state;
+        session->last_active_time = std::chrono::steady_clock::now();
+        is_outbound ? session->sent_packet_count++ : session->received_packet_count++;
+        session->avg_packet_size = calculateAvgPacketSize(session->avg_packet_size,session->sent_packet_count, session->received_packet_count, packet_size);
     }
     else
     {
@@ -138,8 +150,13 @@ void SessionTable::printSessionCache()
     std::cout << std::setw(15) << "State"
               << std::setw(20) << "Destination IP"
               << std::setw(15) << "Ports"
-              << std::setw(30) << "Idle Time (sec)" << std::endl;
-    std::cout << std::string(80, '-') << std::endl;
+              << std::setw(15) << "Idle Time"
+              << std::setw(15) << "Recv Packets"
+              << std::setw(15) << "Sent Packets"
+              << std::setw(20) << "Avg Packet Size"
+              << std::endl;
+
+    std::cout << std::string(115, '-') << std::endl;
 
     const auto current_time = std::chrono::steady_clock::now();
 
@@ -171,7 +188,11 @@ void SessionTable::printSessionCache()
         std::cout << std::setw(15) << state
                   << std::setw(20) << session.dst_ip.toString()
                   << std::setw(15) << port_info
-                  << std::setw(15) << idle_duration << std::endl;
+                  << std::setw(15) << idle_duration
+                  << std::setw(15) << session.received_packet_count
+                  << std::setw(15) << session.sent_packet_count
+                  << std::setw(20) << session.avg_packet_size
+                  << std::endl;
     }
     std::cout << "Total Active sessions: " << _session_cache.size() << std::endl;
 }
@@ -209,6 +230,10 @@ void SessionTable::sendTableToBackend()
                 case LAST_ACK:      tcp_element["state"] = "LAST_ACK";  break;
                 default:            tcp_element["state"] = "UNKNOWN"; break;
             }
+            tcp_element["recv_packets"] = std::to_string(session.received_packet_count);
+            tcp_element["sent_packets"] = std::to_string(session.sent_packet_count);
+            tcp_element["avg_packet_size"] = std::to_string(session.avg_packet_size);
+
             tcp_sessions.append(tcp_element);
         }
         else
@@ -218,6 +243,10 @@ void SessionTable::sendTableToBackend()
             udp_element["dst_ip"] = session.dst_ip.toString();
             udp_element["src_port"] = std::to_string(session.source_port);
             udp_element["dst_port"] = std::to_string(session.dst_port);
+            udp_element["recv_packets"] = std::to_string(session.received_packet_count);
+            udp_element["sent_packets"] = std::to_string(session.sent_packet_count);
+            udp_element["avg_packet_size"] = std::to_string(session.avg_packet_size);
+
             udp_sessions.append(udp_element);
         }
     }

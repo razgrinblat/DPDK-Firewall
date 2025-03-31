@@ -111,7 +111,6 @@ void WebSocketClient::onClose(ConnectionHdl hdl)
 {
     _is_connected = false;
     std::cout << "[WebSocketClient] Connection closed." << std::endl;
-    runLoop();
 }
 
 void WebSocketClient::onFail(ConnectionHdl hdl)

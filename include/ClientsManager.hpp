@@ -7,7 +7,7 @@
 #include <IPv4Layer.h>
 #include <iomanip>
 #include <shared_mutex>
-
+#include <unordered_set>
 #include "Config.hpp"
 
 class ClientsManager
@@ -15,9 +15,13 @@ class ClientsManager
 
 private:
     std::unordered_map<std::string,pcpp::MacAddress> _clients; // client IP to Mac
+    std::unordered_set<std::string> _clients_mac; // all clients macs
     std::shared_mutex _clients_mutex;
 
+    void processNewIncomingIp(const std::string& src_ip, const pcpp::MacAddress& src_mac);
+    void changeClientIp(const std::string& src_ip, const pcpp::MacAddress& src_mac);
     void addNewClient(const std::string& src_ip, const pcpp::MacAddress& src_mac);
+
 
     ClientsManager() = default;
 
@@ -30,7 +34,6 @@ public:
 
     void processClientPacket(const pcpp::Packet& packet);
     pcpp::MacAddress getClientMacAddress(const pcpp::IPv4Address& client_ip);
-    uint16_t getClientID(const pcpp::IPv4Address& client_ip);
 
     void printClientsTable();
 

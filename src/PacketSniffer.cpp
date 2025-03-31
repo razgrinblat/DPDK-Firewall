@@ -1,6 +1,7 @@
 #include "PacketSniffer.hpp"
 
-void PacketSniffer::buildFirewallRules() const {
+void PacketSniffer::buildFirewallRules() const
+{
     _http_rules_handler.buildRules();
     _rule_tree.buildTree();
 }
@@ -55,7 +56,7 @@ void PacketSniffer::startingDpdkThreads()
 
 void PacketSniffer::startingWsThreads()
 {
-    _ws_client.start("ws://192.168.1.33:8080/firewall");
+    _ws_client.start("ws://192.168.1.35:8080/firewall");
     _ws_manager_thread = std::thread(&PacketSniffer::runWsManagerThread,this);
 }
 

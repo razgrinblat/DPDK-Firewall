@@ -22,7 +22,7 @@ private:
     void fetchPacketsFromTx();
     void modifyUdpPacket(const pcpp::Packet& parsed_packet, const pcpp::IPv4Address& client_ipv4, uint16_t client_port);
     void modifyTcpPacket(const pcpp::Packet& parsed_packet, const pcpp::IPv4Address& client_ipv4, uint16_t client_port);
-    bool modifyPacketHeaders(pcpp::Packet& parsed_packet);
+    void modifyPacketHeaders(pcpp::Packet& parsed_packet);
     void sendPackets(std::array<pcpp::MBufRawPacket*, Config::MAX_RECEIVE_BURST> &packet_buffer, uint32_t packets_number);
 
 public:

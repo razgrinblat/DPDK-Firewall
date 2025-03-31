@@ -39,37 +39,31 @@ void TxSenderThread::modifyTcpPacket(const pcpp::Packet &parsed_packet, const pc
     pcpp::EthLayer* eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
     eth_layer->setSourceMac(Config::DPDK_DEVICE1_MAC_ADDRESS); //set source mac to DPDK1 device
     eth_layer->setDestMac(_client_manager.getClientMacAddress(client_ipv4)); // set to client dst mac
-
 }
 
-bool TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
+void TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
 {
     if (parsed_packet.isPacketOfType(pcpp::TCP))
     {
         pcpp::tcphdr* tcphdr = parsed_packet.getLayerOfType<pcpp::TcpLayer>()->getTcpHeader();
-        if (const auto& result = _port_allocator.getClientIPAndPort(pcpp::netToHost16(tcphdr->portDst)))
+        if (const auto& result = _port_allocator.getClientIpAndPort(pcpp::netToHost16(tcphdr->portDst)))
         {
-            const auto&[client_ip, client_port] = result.value();
+            const auto& [client_ip, client_port] = result.value();
             modifyTcpPacket(parsed_packet,client_ip,client_port);
         }
-        else {
-            return false; //client port don't found in the port table;
-        }
+        else throw std::runtime_error("un valid incoming TCP packet");
     }
     else if (parsed_packet.isPacketOfType(pcpp::UDP))
     {
         pcpp::udphdr* udphdr = parsed_packet.getLayerOfType<pcpp::UdpLayer>()->getUdpHeader();
-        if (const auto& result = _port_allocator.getClientIPAndPort(pcpp::netToHost16(udphdr->portDst)))
+        if (const auto& result = _port_allocator.getClientIpAndPort(pcpp::netToHost16(udphdr->portDst)))
         {
-            const auto&[client_ip, client_port] = result.value();
+            const auto& [client_ip, client_port] = result.value();
             modifyUdpPacket(parsed_packet, client_ip,client_port);
         }
-        else {
-            return false; //client port don't found in the port table;
-        }
+        else throw std::runtime_error("un valid incoming UDP packet");
     }
     parsed_packet.computeCalculateFields();
-    return true;
 }
 
 void TxSenderThread::sendPackets(std::array<pcpp::MBufRawPacket *, Config::MAX_RECEIVE_BURST> &packet_buffer,
@@ -104,11 +98,9 @@ bool TxSenderThread::run(uint32_t coreId)
         for (auto* raw_packet : _packets_to_process)
         {
             pcpp::Packet parsed_packet(raw_packet);
-            if(!modifyPacketHeaders(parsed_packet))
-            {
-                continue;
-            }
-            if(parsed_packet.isPacketOfType(pcpp::TCP) && !_tcp_session_handler.isValidInternetTcpPacket(parsed_packet))
+
+            modifyPacketHeaders(parsed_packet);
+            if (parsed_packet.isPacketOfType(pcpp::TCP) && !_tcp_session_handler.isValidInternetTcpPacket(parsed_packet))
             {
                 continue; // continue if the packet is invalid
             }

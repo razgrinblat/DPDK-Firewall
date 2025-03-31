@@ -14,7 +14,7 @@ PortAllocator & PortAllocator::getInstance()
     return instance;
 }
 
-std::optional<std::pair<pcpp::IPv4Address, uint16_t>> PortAllocator::getClientIPAndPort(const uint16_t firewall_port)
+std::optional<std::pair<pcpp::IPv4Address, uint16_t>> PortAllocator::getClientIpAndPort(const uint16_t firewall_port)
 {
     std::shared_lock lock(_table_mutex);
     auto it = _ports_in_use_table.find(firewall_port);
@@ -31,7 +31,7 @@ uint16_t PortAllocator::allocatePort(const pcpp::IPv4Address& client_ip, const u
     uint16_t firewall_port;
     do {
         firewall_port = generatePort();
-    }while (_ports_in_use_table.find(firewall_port) != _ports_in_use_table.end());
+    }while (_ports_in_use_table.find(firewall_port) != _ports_in_use_table.end()); // port is already in use
     _ports_in_use_table[firewall_port] = {client_ip,client_port};
 
     return firewall_port;
