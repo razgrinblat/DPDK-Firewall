@@ -41,16 +41,17 @@ void UdpSessionHandler::processClientUdpPacket(pcpp::Packet &udp_packet)
     udp_layer->getUdpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(udp_hash));
 }
 
-bool UdpSessionHandler::isValidInternetUdpPacket(pcpp::Packet &udp_packet)
+void UdpSessionHandler::isValidInternetUdpPacket(pcpp::Packet &udp_packet)
 {
     const uint32_t udp_hash = hash5Tuple(&udp_packet);
 
     if (_session_table.isSessionExists(udp_hash))
     {
         _session_table.updateSession(udp_hash, SessionTable::UDP,udp_packet.getRawPacket()->getRawDataLen(),false);
-        return true;
     }
-    const auto ip_layer = udp_packet.getLayerOfType<pcpp::IPv4Layer>();
-    std::cerr << "Blocked Unexpected UDP packet from IP: " << ip_layer->getSrcIPv4Address() << std::endl;
-    return false;
+    else
+    {
+        const auto ip_layer = udp_packet.getLayerOfType<pcpp::IPv4Layer>();
+        throw std::runtime_error("Blocked Unexpected UDP packet from IP: " + ip_layer->getSrcIPv4Address().toString());
+    }
 }

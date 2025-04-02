@@ -20,6 +20,7 @@ public:
     void stop();                         // Closes connection and stops the loop
     void send(const std::string &message); // Sends a message if connected
     void setOnMessageCallBack(const std::function<void(const std::string&)>& callback);
+    void setOnConnectCallBack(const std::function<void()>& callback);
 
 private:
     WebSocketClient();
@@ -34,6 +35,7 @@ private:
     Client _client;
     ConnectionHdl _connectionHandle;
     std::function<void(const std::string&)> _onMessageCallback;
+    std::function<void()> _onConnectCallBack;
     std::thread _ws_thread;
     std::atomic<bool> _running;
     std::atomic<bool> _is_connected;

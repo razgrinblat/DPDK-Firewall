@@ -2,7 +2,7 @@
 
 void TxSenderThread::fetchPacketsFromTx()
 {
-    std::lock_guard lock_guard(_queues_manager.getTxQueueMutex());
+    std::lock_guard lock(_queues_manager.getTxQueueMutex());
     const auto tx_queue = _queues_manager.getTxQueue();
     const uint32_t packets_to_send = std::min(Config::MAX_RECEIVE_BURST,static_cast<int>(tx_queue->size()));
 
@@ -51,7 +51,9 @@ void TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
             const auto& [client_ip, client_port] = result.value();
             modifyTcpPacket(parsed_packet,client_ip,client_port);
         }
-        else throw std::runtime_error("un valid incoming TCP packet");
+        else {
+            throw std::runtime_error("un valid incoming TCP packet: " + parsed_packet.toString());
+        }
     }
     else if (parsed_packet.isPacketOfType(pcpp::UDP))
     {
@@ -61,7 +63,9 @@ void TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
             const auto& [client_ip, client_port] = result.value();
             modifyUdpPacket(parsed_packet, client_ip,client_port);
         }
-        else throw std::runtime_error("un valid incoming UDP packet");
+        else {
+            throw std::runtime_error("un valid incoming UDP packet: " + parsed_packet.toString());
+        }
     }
     parsed_packet.computeCalculateFields();
 }
@@ -98,17 +102,24 @@ bool TxSenderThread::run(uint32_t coreId)
         for (auto* raw_packet : _packets_to_process)
         {
             pcpp::Packet parsed_packet(raw_packet);
-
-            modifyPacketHeaders(parsed_packet);
-            if (parsed_packet.isPacketOfType(pcpp::TCP) && !_tcp_session_handler.isValidInternetTcpPacket(parsed_packet))
+            if (parsed_packet.isPacketOfType(pcpp::IPv4) && parsed_packet.getLayerOfType<pcpp::IPv4Layer>()->getDstIPv4Address() == Config::DPDK_DEVICE2_IP)
             {
-                continue; // continue if the packet is invalid
+                try {
+                    modifyPacketHeaders(parsed_packet);
+                    if (parsed_packet.isPacketOfType(pcpp::TCP))
+                    {
+                        _tcp_session_handler.isValidInternetTcpPacket(parsed_packet);
+                    }
+                    else if (parsed_packet.isPacketOfType(pcpp::UDP))
+                    {
+                        _udp_session_handler.isValidInternetUdpPacket(parsed_packet);
+                    }
+                    mbuf_array[packets_to_send++] = raw_packet;
+                }
+                catch (const std::exception& e) { // packet is blocked or unvalid
+                    std::cerr << e.what() << std::endl;
+                }
             }
-            if (parsed_packet.isPacketOfType(pcpp::UDP) && !_udp_session_handler.isValidInternetUdpPacket(parsed_packet))
-            {
-                continue; // continue if the packet is invalid
-            }
-            mbuf_array[packets_to_send++] = raw_packet;
         }
         sendPackets(mbuf_array,packets_to_send);
     }

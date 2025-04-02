@@ -76,6 +76,12 @@ void WebSocketClient::setOnMessageCallBack(const std::function<void(const std::s
     _onMessageCallback = callback;
 }
 
+void WebSocketClient::setOnConnectCallBack(const std::function<void()> &callback)
+{
+    _onConnectCallBack = callback;
+}
+
+
 void WebSocketClient::runLoop()
 {
     while (_running)
@@ -105,12 +111,19 @@ void WebSocketClient::onOpen(ConnectionHdl hdl)
 {
     _is_connected = true;
     std::cout << "[WebSocketClient] Connected to server." << std::endl;
+    static bool wasEverConnected = false;
+    if (_onConnectCallBack && !wasEverConnected)
+    {
+        _onConnectCallBack();
+        wasEverConnected = true;
+    }
 }
 
 void WebSocketClient::onClose(ConnectionHdl hdl)
 {
     _is_connected = false;
     std::cout << "[WebSocketClient] Connection closed." << std::endl;
+    runLoop();
 }
 
 void WebSocketClient::onFail(ConnectionHdl hdl)

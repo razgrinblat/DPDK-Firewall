@@ -67,14 +67,14 @@ bool RxSenderThread::run(uint32_t coreId)
         fetchPacketFromRx(); // fetch packets into _packets_to_process
 
         uint32_t packets_to_send = 0;
-        for(auto* raw_packet : _packets_to_process)
+        for (auto* raw_packet : _packets_to_process)
         {
             pcpp::Packet parsed_packet(raw_packet);
-            if(parsed_packet.isPacketOfType(pcpp::IPv4))
+            if (parsed_packet.isPacketOfType(pcpp::IPv4) && parsed_packet.getLayerOfType<pcpp::IPv4Layer>()->getSrcIPv4Address() != Config::DPDK_DEVICE2_IP)
             {
                 pcpp::MacAddress dest_mac;
                 pcpp::IPv4Address dest_ip = parsed_packet.getLayerOfType<pcpp::IPv4Layer>()->getDstIPv4Address();
-                if(isLocalNetworkPacket(dest_ip,Config::ROUTER_IP,Config::SUBNET_MASK))
+                if (isLocalNetworkPacket(dest_ip,Config::ROUTER_IP,Config::SUBNET_MASK))
                 {
                     if (!resolveLocalNetworkPacket(dest_ip))
                     {
@@ -86,16 +86,20 @@ bool RxSenderThread::run(uint32_t coreId)
                 {
                     dest_mac  = Config::ROUTER_MAC_ADDRESS;
                 }
-                if(parsed_packet.isPacketOfType(pcpp::TCP) && !_tcp_session_handler.processClientTcpPacket(parsed_packet))
-                {
-                    continue; // continue if the packet is unknown
+                try {
+                    if (parsed_packet.isPacketOfType(pcpp::TCP))
+                    {
+                        _tcp_session_handler.processClientTcpPacket(parsed_packet);
+                    }
+                    else if (parsed_packet.isPacketOfType(pcpp::UDP))
+                    {
+                        _udp_session_handler.processClientUdpPacket(parsed_packet);
+                    }
+                    modifyPacketHeaders(parsed_packet,dest_mac);
+                    mbuf_array[packets_to_send++] = raw_packet;
+                }catch (const std::exception& e) {
+                    std::cerr << e.what() << std::endl;
                 }
-                if (parsed_packet.isPacketOfType(pcpp::UDP))
-                {
-                    _udp_session_handler.processClientUdpPacket(parsed_packet);
-                }
-                modifyPacketHeaders(parsed_packet,dest_mac);
-                mbuf_array[packets_to_send++] = raw_packet;
             }
         }
         // Sends packets in bulk for efficiency

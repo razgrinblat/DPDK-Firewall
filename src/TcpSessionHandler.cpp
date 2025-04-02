@@ -33,7 +33,7 @@ TcpSessionHandler & TcpSessionHandler::getInstance()
     return instance;
 }
 
-bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
+void TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
 {
     const uint32_t tcp_hash = hash5Tuple(&tcp_packet);
 
@@ -89,7 +89,7 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
             _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT, packet_size, true);
         }
         else {
-            return false;
+            throw std::runtime_error("un valid client packet1: " + tcp_packet.toString());
         }
     }
     else //open a new session
@@ -99,7 +99,7 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
             _session_table.addNewSession(tcp_hash,std::move(initTcpSession(tcp_packet)), SessionTable::SYN_SENT,packet_size);
         }
         else {
-            return false;
+            throw std::runtime_error("un valid client packet2: " + tcp_packet.toString());
         }
     }
 
@@ -110,10 +110,10 @@ bool TcpSessionHandler::processClientTcpPacket(pcpp::Packet &tcp_packet)
     const auto tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
     tcp_layer->getTcpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(tcp_hash));
 
-    return _session_table.isAllowed(tcp_hash);
+    if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("packet blocked by DPI");
 }
 
-bool TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
+void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
 {
     const uint32_t tcp_hash = hash5Tuple(&tcp_packet,false);
 
@@ -171,21 +171,16 @@ bool TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
             //dup ACK's due to bad connection
             _session_table.updateSession(tcp_hash,SessionTable::TIME_WAIT,packet_size,false);
         }
-
         else {
-            const auto ip_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
-            std::cerr << "Blocked Unexpected TCP packet from Internet -IP: " << ip_layer->getSrcIPv4Address() << std::endl;
-            return false; // block the packet
+            throw std::runtime_error("Blocked Unexpected TCP packet from Internet: " + tcp_packet.toString());
         }
     }
     else
     {
-        const auto ip_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
-        std::cerr << "Blocked Unexpected TCP packet from IP: " << ip_layer->getSrcIPv4Address() << std::endl;
-        return false;
+        throw std::runtime_error("Blocked Unexpected TCP packet from Internet: " + tcp_packet.toString());
     }
     //data transfer, DPI checking
     _dpi_engine.processDpiTcpPacket(tcp_packet);
 
-    return _session_table.isAllowed(tcp_hash);
+    if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("packet blocked by DPI");
 }

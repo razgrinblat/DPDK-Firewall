@@ -22,6 +22,6 @@ public:
     static UdpSessionHandler& getInstance();
 
     void processClientUdpPacket(pcpp::Packet& udp_packet);
-    bool isValidInternetUdpPacket(pcpp::Packet& udp_packet);
+    void isValidInternetUdpPacket(pcpp::Packet& udp_packet);
 
 };

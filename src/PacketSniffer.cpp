@@ -57,7 +57,9 @@ void PacketSniffer::startingDpdkThreads()
 void PacketSniffer::startingWsThreads()
 {
     _ws_client.start("ws://192.168.1.35:8080/firewall");
-    _ws_manager_thread = std::thread(&PacketSniffer::runWsManagerThread,this);
+    _ws_client.setOnConnectCallBack([this] {
+        _ws_manager_thread = std::thread(&PacketSniffer::runWsManagerThread,this);
+    });
 }
 
 void PacketSniffer::runWsManagerThread()
@@ -66,7 +68,7 @@ void PacketSniffer::runWsManagerThread()
     {
         _packet_stats.sendPacketStatsToBackend();
         _session_table.sendTableToBackend();
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
 }
 
@@ -97,6 +99,7 @@ _clients_manager(ClientsManager::getInstance()), _port_allocator(PortAllocator::
 
 PacketSniffer::~PacketSniffer()
 {
+    _ws_client.stop();
     if (_ws_manager_thread.joinable())
     {
         _ws_manager_thread.join();
