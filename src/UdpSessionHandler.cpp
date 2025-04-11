@@ -8,12 +8,12 @@ std::unique_ptr<SessionTable::Session> UdpSessionHandler::initUdpSession(const p
     const pcpp::IPv4Layer* ipv4_layer = tcp_packet.getLayerOfType<pcpp::IPv4Layer>();
     const pcpp::UdpLayer* udp_layer = tcp_packet.getLayerOfType<pcpp::UdpLayer>();
     return std::make_unique<SessionTable::Session>(
-        SessionTable::UDP_PROTOCOL,
+        TCP_COMMON_TYPES::UDP_PROTOCOL,
        ipv4_layer->getSrcIPv4Address(),
        ipv4_layer->getDstIPv4Address(),
        udp_layer->getSrcPort(),
        udp_layer->getDstPort(),
-       SessionTable::UDP
+       TCP_COMMON_TYPES::UDP
    );
 }
 
@@ -30,11 +30,11 @@ void UdpSessionHandler::processClientUdpPacket(pcpp::Packet &udp_packet)
 
     if (_session_table.isSessionExists(udp_hash))
     {
-        _session_table.updateSession(udp_hash,SessionTable::UDP,packet_size,true);
+        _session_table.updateSession(udp_hash,TCP_COMMON_TYPES::UDP,packet_size,true);
     }
     else
     {
-        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)),SessionTable::UDP,packet_size);
+        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)),TCP_COMMON_TYPES::UDP,packet_size);
     }
     // change port to firewall port
     const auto udp_layer = udp_packet.getLayerOfType<pcpp::UdpLayer>();
@@ -47,7 +47,7 @@ void UdpSessionHandler::isValidInternetUdpPacket(pcpp::Packet &udp_packet)
 
     if (_session_table.isSessionExists(udp_hash))
     {
-        _session_table.updateSession(udp_hash, SessionTable::UDP,udp_packet.getRawPacket()->getRawDataLen(),false);
+        _session_table.updateSession(udp_hash, TCP_COMMON_TYPES::UDP,udp_packet.getRawPacket()->getRawDataLen(),false);
     }
     else
     {

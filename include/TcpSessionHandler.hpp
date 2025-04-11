@@ -1,15 +1,18 @@
 #pragma once
-#include "SessionTable.hpp"
-#include "DpiEngine.hpp"
+#include "PortAllocator.hpp"
 #include <TcpLayer.h>
 #include <memory>
 #include <IPv4Layer.h>
 #include <PacketUtils.h>
 #include <SystemUtils.h>
+#include <DpiEngine.hpp>
+#include "SessionTable.hpp"
+#include "TcpCommonTypes.hpp"
+
+class TcpStateClass;
 
 class TcpSessionHandler
 {
-
 private:
     SessionTable& _session_table;
     DpiEngine& _dpi_engine;
@@ -17,15 +20,12 @@ private:
 
     TcpSessionHandler();
     std::unique_ptr<SessionTable::Session> initTcpSession(const pcpp::Packet& tcp_packet) const;
-    const pcpp::tcphdr& extractTcpHeader(const pcpp::Packet &tcp_packet);
+    static const pcpp::tcphdr& extractTcpHeader(const pcpp::Packet& tcp_packet);
 
 public:
-    ~TcpSessionHandler() = default;
-    TcpSessionHandler(const TcpSessionHandler&) = delete;
-    TcpSessionHandler& operator=(const TcpSessionHandler&) = delete;
     static TcpSessionHandler& getInstance();
 
+    void updateSession(uint32_t tcp_hash, SessionTable::TcpState new_state, uint32_t packet_size, bool is_outbound);
     void processClientTcpPacket(pcpp::Packet& tcp_packet);
     void isValidInternetTcpPacket(pcpp::Packet& tcp_packet);
-
 };

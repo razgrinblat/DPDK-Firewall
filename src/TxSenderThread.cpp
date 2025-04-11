@@ -52,7 +52,7 @@ void TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
             modifyTcpPacket(parsed_packet,client_ip,client_port);
         }
         else {
-            throw std::runtime_error("un valid incoming TCP packet: " + parsed_packet.toString());
+            throw std::runtime_error("Invalid incoming TCP packet: " + parsed_packet.toString());
         }
     }
     else if (parsed_packet.isPacketOfType(pcpp::UDP))
@@ -64,8 +64,12 @@ void TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
             modifyUdpPacket(parsed_packet, client_ip,client_port);
         }
         else {
-            throw std::runtime_error("un valid incoming UDP packet: " + parsed_packet.toString());
+            throw std::runtime_error("Invalid incoming UDP packet: " + parsed_packet.toString());
         }
+    }
+    else if (parsed_packet.isPacketOfType(pcpp::ICMP))
+    {
+        _icmp_handler.modifyInBoundIcmpResponse(parsed_packet);
     }
     parsed_packet.computeCalculateFields();
 }
@@ -83,7 +87,7 @@ TxSenderThread::TxSenderThread(pcpp::DpdkDevice *tx_device): _tx_device2(tx_devi
                                                              _coreId(MAX_NUM_OF_CORES + 1), _queues_manager(QueuesManager::getInstance()),
                                                              _tcp_session_handler(TcpSessionHandler::getInstance()), _udp_session_handler(UdpSessionHandler::getInstance()),
                                                              _port_allocator(PortAllocator::getInstance()), _client_manager(ClientsManager::getInstance()),
-                                                             _packets_to_process(Config::MAX_RECEIVE_BURST)
+                                                             _icmp_handler(IcmpHandler::getInstance()), _packets_to_process(Config::MAX_RECEIVE_BURST)
 {}
 
 bool TxSenderThread::run(uint32_t coreId)

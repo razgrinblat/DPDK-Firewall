@@ -91,9 +91,9 @@ bool IpRulesParser::isValidIPv4(const std::string &ip)
 void IpRulesParser::validateRule(const Json::Value& rule)
 {
     const std::string action = rule["action"].asString();
-    if (action != "block" && action != "accept")
+    if (action != "block")
     {
-        throw std::invalid_argument("Field 'action' must be 'block or 'accept'");
+        throw std::invalid_argument("Field 'action' must be 'block' - black list");
     }
     const std::string protocol = rule["protocol"].asString();
     if (protocol != "tcp" && protocol != "udp")

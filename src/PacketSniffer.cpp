@@ -56,7 +56,7 @@ void PacketSniffer::startingDpdkThreads()
 
 void PacketSniffer::startingWsThreads()
 {
-    _ws_client.start("ws://192.168.1.35:8080/firewall");
+    _ws_client.start(Config::WEBSOCKET_PATH);
     _ws_client.setOnConnectCallBack([this] {
         _ws_manager_thread = std::thread(&PacketSniffer::runWsManagerThread,this);
     });

@@ -18,7 +18,7 @@ public:
     std::string getProtocol() const;
     std::string getDstIp() const;
     std::string getDstPort() const;
-    std::string getAction() const;
+    bool getAction() const; //true - allow false - block;
     std::string toString() const;
 
     bool operator==(const Rule& other) const;

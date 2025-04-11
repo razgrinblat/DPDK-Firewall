@@ -26,10 +26,12 @@ public:
     IcmpHandler& operator=(const IcmpHandler&) = delete;
     static IcmpHandler& getInstance();
 
+    void modifyInBoundIcmpResponse(pcpp::Packet& parsed_packet);
+
     //process internet icmp packets
-    bool processInBoundIcmp(pcpp::Packet& parsed_packet);
+    bool processInBoundIcmp(const pcpp::Packet& parsed_packet);
 
     //process client icmp packets
-    bool processOutBoundIcmp(pcpp::Packet& parsed_packet);
+    bool processOutBoundIcmp(const pcpp::Packet& parsed_packet);
 
 };

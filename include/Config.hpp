@@ -23,6 +23,8 @@ public:
     static auto constexpr IP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/firewall_rules.json";
     static auto constexpr HTTP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/http_rules.json";
 
+    static auto constexpr WEBSOCKET_PATH = "ws://192.168.1.29:8080/firewall";
+
     //ARP CONFIGURATION
     static constexpr auto ARP_REQUEST_OPCODE = 256;
     static constexpr auto MAX_RETRIES = 4; // Maximum number of ARP request retries

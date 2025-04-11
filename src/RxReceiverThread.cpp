@@ -35,9 +35,9 @@ bool RxReceiverThread::run(uint32_t coreId)
     while (!_stop)
     {
         packets_to_queue.clear();
-        const uint32_t num_of_packets = _rx_device1->receivePackets(mbuf_array.data(),Config::MAX_RECEIVE_BURST,0);
+        const uint32_t number_of_packets = _rx_device1->receivePackets(mbuf_array.data(),Config::MAX_RECEIVE_BURST,0);
 
-        for(uint32_t i = 0; i < num_of_packets; ++i)
+        for(uint32_t i = 0; i < number_of_packets; ++i)
         {
             pcpp::Packet parsed_packet(mbuf_array[i]);
             _clients_manager.processClientPacket(parsed_packet);
@@ -52,9 +52,16 @@ bool RxReceiverThread::run(uint32_t coreId)
             {
                 packets_to_queue.push_back(mbuf_array[i]);
             }
-            else if (_rule_tree.handleOutboundForwarding(parsed_packet))
+            else if (parsed_packet.isPacketOfType(pcpp::TCP) || parsed_packet.isPacketOfType(pcpp::UDP))
             {
-                packets_to_queue.push_back(mbuf_array[i]);
+                if(_rule_tree.handleOutboundForwarding(parsed_packet))
+                {
+                    packets_to_queue.push_back(mbuf_array[i]);
+                }
+                else
+                {
+                    std::cout << "Blocked: " << parsed_packet.toString() << std::endl;
+                }
             }
         }
         // Lock the queue and push all packets in a batch

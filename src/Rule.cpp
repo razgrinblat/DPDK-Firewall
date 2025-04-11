@@ -6,7 +6,7 @@ Rule::Rule(const std::string& protocol, const std::string& dst_ip, const std::st
 std::string Rule::getProtocol() const { return protocol; }
 std::string Rule::getDstIp() const { return dst_ip; }
 std::string Rule::getDstPort() const { return dst_port; }
-std::string Rule::getAction() const { return action; }
+bool Rule::getAction() const { return action != "block"; }
 
 bool Rule::operator==(const Rule& other) const
 {
@@ -35,9 +35,5 @@ std::ostream& operator<<(std::ostream& os, const Rule& rule)
 
 size_t std::hash<Rule>::operator()(const Rule& rule) const
 {
-    size_t h1 = std::hash<std::string>{}(rule.getProtocol());
-    size_t h2 = std::hash<std::string>{}(rule.getDstIp());
-    size_t h3 = std::hash<std::string>{}(rule.getDstPort());
-    size_t h4 = std::hash<std::string>{}(rule.getAction());
-    return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3);
+    return std::hash<std::string>{}(rule.getProtocol() + rule.getDstIp() + rule.getDstPort());
 }

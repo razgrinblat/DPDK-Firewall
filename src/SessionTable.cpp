@@ -1,39 +1,23 @@
 #include "SessionTable.hpp"
 
-SessionTable::SessionTable(): _lru_list(Config::MAX_SESSIONS), _stop_flag(false),
-_port_allocator(PortAllocator::getInstance()), _ws_client(WebSocketClient::getInstance())
-{
-    _clean_up_thread = std::thread(&SessionTable::runCleanUpThread,this);
-}
+SessionTable::Session::Session(const Protocol protocol, const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
+                               uint16_t src_port, uint16_t dst_port, TcpState state)
+    : isAllowed(true), protocol(protocol), current_state(state), source_ip(src_ip), dst_ip(dst_ip),
+      source_port(src_port), dst_port(dst_port), firewall_port(0), received_packet_count(0),
+      sent_packet_count(0), avg_packet_size(0.0), state_object(nullptr) {}
 
-void SessionTable::cleanUpIdleSessions()
+SessionTable::SessionTable()
+    : _lru_list(Config::MAX_SESSIONS), _stop_flag(false),
+      _port_allocator(PortAllocator::getInstance()), _ws_client(WebSocketClient::getInstance())
 {
-    const auto current_time = std::chrono::steady_clock::now();
-
-    std::unique_lock lock(_cache_mutex);
-    for (auto it = _session_cache.begin() ; it !=_session_cache.end();)
-    {
-        const std::unique_ptr<Session>& session = it->second;
-        const auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(current_time - session->last_active_time).count();
-        if(time_diff >= Config::MAX_IDLE_SESSION_TIME && (session->current_state != ESTABLISHED || session->isAllowed == false))
-        {
-            _port_allocator.releasePort(session->firewall_port);
-            _lru_list.eraseElement(it->first);
-            it = _session_cache.erase(it);
-        }
-        else {
-            ++it;
-        }
-    }
+    _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
 
 SessionTable::~SessionTable()
 {
     _stop_flag.store(true);
     if (_clean_up_thread.joinable())
-    {
         _clean_up_thread.join();
-    }
     _session_cache.clear();
 }
 
@@ -43,105 +27,79 @@ SessionTable& SessionTable::getInstance()
     return instance;
 }
 
-void SessionTable::runCleanUpThread()
-{
-    while (!_stop_flag.load())
-    {
-        cleanUpIdleSessions();
-        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_IDLE_SESSIONS_TIME)); // to avoid busy waiting
-    }
-}
-
-double SessionTable::calculateAvgPacketSize(const double current_avg, const uint32_t sent_packet_count,
-                                            const uint32_t received_packet_count, const uint32_t packet_size)
-{
-    const uint32_t total_packets = received_packet_count + sent_packet_count;
-    return current_avg + (static_cast<double>(packet_size) - current_avg) / static_cast<double>(total_packets);
-}
-
 bool SessionTable::isSessionExists(const uint32_t session_hash)
 {
     std::shared_lock lock(_cache_mutex);
     return _session_cache.find(session_hash) != _session_cache.end();
 }
 
-void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState& current_state, const uint32_t packet_size)
+void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState state, const uint32_t packet_size, TcpSessionHandler* context)
 {
-    std::unique_lock lock_guard(_cache_mutex);
+    std::unique_lock lock(_cache_mutex);
 
     uint32_t session_key_to_close;
-    const int result = _lru_list.put(session_hash,&session_key_to_close);
-    if(result)
-    {
-        _session_cache.erase(session_key_to_close); //session cache is full. need to delete the least active connection
-    }
+    if (_lru_list.put(session_hash, &session_key_to_close))
+        _session_cache.erase(session_key_to_close);
+
     session->last_active_time = std::chrono::steady_clock::now();
-    session->current_state = current_state;
+    session->current_state = state;
+    if (context) session->state_object = TcpStateFactory::createState(state, context);
     session->firewall_port = _port_allocator.allocatePort(session->source_ip, session->source_port);
     session->sent_packet_count++;
-    session->avg_packet_size = calculateAvgPacketSize(session->avg_packet_size,session->sent_packet_count, session->received_packet_count, packet_size);
+    session->avg_packet_size = calculateAvgPacketSize(session->avg_packet_size, session->sent_packet_count, session->received_packet_count, packet_size);
     _session_cache[session_hash] = std::move(session);
 }
 
-const SessionTable::TcpState& SessionTable::getCurrentState(const uint32_t session_hash)
+void SessionTable::updateSession(const uint32_t session_hash, const TcpState new_state, const uint32_t packet_size, const bool is_outbound, TcpSessionHandler* context)
+{
+    std::unique_lock lock(_cache_mutex);
+    auto it = _session_cache.find(session_hash);
+    if (it == _session_cache.end()) throw std::runtime_error("Session does not exist");
+
+    const auto& session = it->second;
+    session->current_state = new_state;
+    if (context) session->state_object = TcpStateFactory::createState(new_state, context);
+    session->last_active_time = std::chrono::steady_clock::now();
+    is_outbound ? session->sent_packet_count++ : session->received_packet_count++;
+    session->avg_packet_size = calculateAvgPacketSize(session->avg_packet_size, session->sent_packet_count, session->received_packet_count, packet_size);
+}
+
+SessionTable::Session* SessionTable::getSession(const uint32_t session_hash)
 {
     std::shared_lock lock(_cache_mutex);
     auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end()) {
-        return it->second->current_state;
-    }
-    throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
+    if (it != _session_cache.end()) return it->second.get();
+    throw std::runtime_error("Session not found");
 }
 
 uint16_t SessionTable::getFirewallPort(const uint32_t session_hash)
 {
     std::shared_lock lock(_cache_mutex);
     auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end()) {
-        return it->second->firewall_port;
-    }
-    throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
+    if (it != _session_cache.end()) return it->second->firewall_port;
+    throw std::runtime_error("Session not found");
 }
 
-void SessionTable::updateSession(const uint32_t session_hash, const TcpState& new_state,const uint32_t packet_size, const bool is_outbound)
+double SessionTable::calculateAvgPacketSize(const double current_avg, const uint32_t sent, uint32_t recv, uint32_t packet_size)
 {
-    std::unique_lock lock(_cache_mutex);
-    auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end())
-    {
-        const auto& session = it->second;
-        session->current_state = new_state;
-        session->last_active_time = std::chrono::steady_clock::now();
-        is_outbound ? session->sent_packet_count++ : session->received_packet_count++;
-        session->avg_packet_size = calculateAvgPacketSize(session->avg_packet_size,session->sent_packet_count, session->received_packet_count, packet_size);
-    }
-    else
-    {
-        throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
-    }
+    const uint32_t total = sent + recv;
+    return current_avg + (static_cast<double>(packet_size) - current_avg) / total;
 }
 
 bool SessionTable::isAllowed(const uint32_t session_hash)
 {
     std::shared_lock lock(_cache_mutex);
     auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end()) {
-        return it->second->isAllowed;
-    }
-    throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
+    if (it != _session_cache.end()) return it->second->isAllowed;
+    throw std::runtime_error("Session not found");
 }
 
 void SessionTable::blockSession(const uint32_t session_hash)
 {
     std::unique_lock lock(_cache_mutex);
     auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end())
-    {
-        it->second->isAllowed = false;
-    } else
-    {
-        throw std::runtime_error("Session " + std::to_string(session_hash) + " does not exist!");
-    }
+    if (it != _session_cache.end()) it->second->isAllowed = false;
+    else throw std::runtime_error("Session not found");
 }
 
 void SessionTable::printSessionCache()
@@ -166,15 +124,15 @@ void SessionTable::printSessionCache()
 
         std::string state;
         switch (session.current_state) {
-            case SYN_SENT:      state = "SYN_SENT"; break;
-            case SYN_RECEIVED:  state = "SYN_RECEIVED"; break;
-            case ESTABLISHED:   state = "ESTABLISHED"; break;
-            case FIN_WAIT1:     state = "FIN_WAIT1"; break;
-            case FIN_WAIT2:     state = "FIN_WAIT2"; break;
-            case CLOSE_WAIT:    state = "CLOSE_WAIT"; break;
-            case TIME_WAIT:     state = "TIME_WAIT"; break;
-            case LAST_ACK:      state = "LAST_ACK";  break;
-            case UDP:           state = "UDP";  break;
+            case TcpState::SYN_SENT:      state = "SYN_SENT"; break;
+            case TcpState::SYN_RECEIVED:  state = "SYN_RECEIVED"; break;
+            case TcpState::ESTABLISHED:   state = "ESTABLISHED"; break;
+            case TcpState::FIN_WAIT1:     state = "FIN_WAIT1"; break;
+            case TcpState::FIN_WAIT2:     state = "FIN_WAIT2"; break;
+            case TcpState::CLOSE_WAIT:    state = "CLOSE_WAIT"; break;
+            case TcpState::TIME_WAIT:     state = "TIME_WAIT"; break;
+            case TcpState::LAST_ACK:      state = "LAST_ACK";  break;
+            case TcpState::UDP:           state = "UDP";  break;
             default:            state = "UNKNOWN"; break;
         }
 
@@ -199,7 +157,6 @@ void SessionTable::printSessionCache()
 
 void SessionTable::sendTableToBackend()
 {
-
     Json::Value active_sessions;
     active_sessions["type"] = "connections update";
 
@@ -212,7 +169,7 @@ void SessionTable::sendTableToBackend()
     {
         const Session& session = *pair.second;
 
-        if (session.protocol == TCP_PROTOCOL)
+        if (session.protocol == TCP_COMMON_TYPES::TCP_PROTOCOL)
         {
             Json::Value tcp_element;
             tcp_element["src_ip"] = session.source_ip.toString();
@@ -220,14 +177,14 @@ void SessionTable::sendTableToBackend()
             tcp_element["src_port"] = std::to_string(session.source_port);
             tcp_element["dst_port"] = std::to_string(session.dst_port);
             switch (session.current_state) {
-                case SYN_SENT:      tcp_element["state"] = "SYN_SENT"; break;
-                case SYN_RECEIVED:  tcp_element["state"] = "SYN_RECEIVED"; break;
-                case ESTABLISHED:   tcp_element["state"] = "ESTABLISHED"; break;
-                case FIN_WAIT1:     tcp_element["state"] = "FIN_WAIT1"; break;
-                case FIN_WAIT2:     tcp_element["state"] = "FIN_WAIT2"; break;
-                case CLOSE_WAIT:    tcp_element["state"] = "CLOSE_WAIT"; break;
-                case TIME_WAIT:     tcp_element["state"] = "TIME_WAIT"; break;
-                case LAST_ACK:      tcp_element["state"] = "LAST_ACK";  break;
+                case  TCP_COMMON_TYPES::SYN_SENT:      tcp_element["state"] = "SYN_SENT"; break;
+                case TCP_COMMON_TYPES::SYN_RECEIVED:  tcp_element["state"] = "SYN_RECEIVED"; break;
+                case TCP_COMMON_TYPES::ESTABLISHED:   tcp_element["state"] = "ESTABLISHED"; break;
+                case TCP_COMMON_TYPES::FIN_WAIT1:     tcp_element["state"] = "FIN_WAIT1"; break;
+                case TCP_COMMON_TYPES::FIN_WAIT2:     tcp_element["state"] = "FIN_WAIT2"; break;
+                case TCP_COMMON_TYPES::CLOSE_WAIT:    tcp_element["state"] = "CLOSE_WAIT"; break;
+                case TCP_COMMON_TYPES::TIME_WAIT:     tcp_element["state"] = "TIME_WAIT"; break;
+                case TCP_COMMON_TYPES::LAST_ACK:      tcp_element["state"] = "LAST_ACK";  break;
                 default:            tcp_element["state"] = "UNKNOWN"; break;
             }
             tcp_element["recv_packets"] = std::to_string(session.received_packet_count);
@@ -259,4 +216,31 @@ void SessionTable::sendTableToBackend()
     const std::string message = writeString(writer, active_sessions);
     // Send message via WebSocket
     _ws_client.send(message);
+}
+
+void SessionTable::cleanUpIdleSessions()
+{
+    const auto now = std::chrono::steady_clock::now();
+    std::unique_lock lock(_cache_mutex);
+    for (auto it = _session_cache.begin(); it != _session_cache.end();)
+    {
+        const auto& session = it->second;
+        auto idle = std::chrono::duration_cast<std::chrono::seconds>(now - session->last_active_time).count();
+        if (idle >= Config::MAX_IDLE_SESSION_TIME && (session->current_state != TcpState::ESTABLISHED || !session->isAllowed)) {
+            _port_allocator.releasePort(session->firewall_port);
+            _lru_list.eraseElement(it->first);
+            it = _session_cache.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void SessionTable::runCleanUpThread()
+{
+    while (!_stop_flag.load())
+    {
+        cleanUpIdleSessions();
+        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_IDLE_SESSIONS_TIME));
+    }
 }

@@ -7,7 +7,6 @@ void IcmpHandler::sendIcmpResponse(const pcpp::MacAddress &dst_mac, const pcpp::
 {
     const auto& src_mac = (sender_device_id == Config::DPDK_DEVICE_1) ? Config::DPDK_DEVICE1_MAC_ADDRESS : Config::DPDK_DEVICE2_MAC_ADDRESS;
     const auto& src_ip = (sender_device_id == Config::DPDK_DEVICE_1) ? Config::DPDK_DEVICE1_IP : Config::DPDK_DEVICE2_IP;
-
     pcpp::EthLayer eth_layer(src_mac,dst_mac,PCPP_ETHERTYPE_IP);
 
     pcpp::IPv4Layer ip_layer(src_ip,dst_ip);
@@ -46,17 +45,11 @@ IcmpHandler & IcmpHandler::getInstance()
     return instance;
 }
 
-bool IcmpHandler::processInBoundIcmp(pcpp::Packet& parsed_packet)
+void IcmpHandler::modifyInBoundIcmpResponse(pcpp::Packet &parsed_packet)
 {
     pcpp::IcmpLayer* icmp_layer = parsed_packet.getLayerOfType<pcpp::IcmpLayer>();
     pcpp::EthLayer* eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
     pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
-
-    if (icmp_layer->getMessageType() == pcpp::ICMP_ECHO_REQUEST)
-    {
-        sendIcmpResponse(eth_layer->getSourceMac(), ipv4_layer->getSrcIPv4Address(),*icmp_layer, Config::DPDK_DEVICE_2);
-        return false;
-    }
     if (icmp_layer->getMessageType() == pcpp::ICMP_ECHO_REPLY)
     {
         const uint16_t received_icmp_id  = icmp_layer->getEchoReplyData()->header->id;
@@ -73,10 +66,28 @@ bool IcmpHandler::processInBoundIcmp(pcpp::Packet& parsed_packet)
             _icmp_request_table.erase(it);
         }
     }
-    return true;
 }
 
-bool IcmpHandler::processOutBoundIcmp(pcpp::Packet& parsed_packet)
+bool IcmpHandler::processInBoundIcmp(const pcpp::Packet& parsed_packet)
+{
+    pcpp::IcmpLayer* icmp_layer = parsed_packet.getLayerOfType<pcpp::IcmpLayer>();
+    const pcpp::EthLayer* eth_layer = parsed_packet.getLayerOfType<pcpp::EthLayer>();
+    const pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
+
+    if (icmp_layer->getMessageType() == pcpp::ICMP_ECHO_REQUEST)
+    {
+        std::cout << ipv4_layer->getSrcIPv4Address() << " pinging the firewall" << std::endl;
+        sendIcmpResponse(eth_layer->getSourceMac(), ipv4_layer->getSrcIPv4Address(),*icmp_layer, Config::DPDK_DEVICE_2);
+        return false; // No need to push the Tx queue
+    }
+    if (icmp_layer->getMessageType() == pcpp::ICMP_ECHO_REPLY)
+    {
+        return true; //push the Tx queue
+    }
+    return false;
+}
+
+bool IcmpHandler::processOutBoundIcmp(const pcpp::Packet& parsed_packet)
 {
     pcpp::IcmpLayer* icmp_layer = parsed_packet.getLayerOfType<pcpp::IcmpLayer>();
 
@@ -88,14 +99,18 @@ bool IcmpHandler::processOutBoundIcmp(pcpp::Packet& parsed_packet)
 
         if (ipv4_layer->getDstIPv4Address() == Config::DPDK_DEVICE1_IP)
         {
+            std::cout << "Client: " << ipv4_layer->getSrcIPv4Address() << " pinging the firewall" << std::endl;
             sendIcmpResponse(eth_layer->getSourceMac(), src_client_ip,*icmp_layer, Config::DPDK_DEVICE_1);
-            return false;
+            return false; // no need to send this packet outside
         }
 
         const uint16_t icmp_id = icmp_layer->getEchoRequestData()->header->id;
+        std::cout << "Client: " << src_client_ip << " pinging to address ip: " << ipv4_layer->getDstIPv4Address()
+        <<" with ICMP ID -> " << icmp_id << std::endl;
 
         std::lock_guard lock(_icmp_table_mutex);
         _icmp_request_table[icmp_id] = src_client_ip;
+        return true;
     }
-    return true;
+    return false;
 }

@@ -4,6 +4,7 @@
 #include "TcpSessionHandler.hpp"
 #include "PortAllocator.hpp"
 #include "ClientsManager.hpp"
+#include "IcmpHandler.hpp"
 #include "UdpSessionHandler.hpp"
 
 class TxSenderThread : public pcpp::DpdkWorkerThread
@@ -17,6 +18,7 @@ private:
     UdpSessionHandler& _udp_session_handler;
     PortAllocator& _port_allocator;
     ClientsManager& _client_manager;
+    IcmpHandler& _icmp_handler;
     std::vector<pcpp::MBufRawPacket*> _packets_to_process;
 
     void fetchPacketsFromTx();

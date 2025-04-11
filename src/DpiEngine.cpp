@@ -159,25 +159,31 @@ size_t DpiEngine::findGzipHeaderOffset(const uint8_t* body, const size_t body_le
 std::unique_ptr<pcpp::HttpRequestLayer> DpiEngine::createHttpRequestLayer(const std::string &http_message)
 {
     uint8_t* rawBuffer = new uint8_t[http_message.size()]; //Pcapplusplus Layer class own the rawBuffer and call delete[].
-    std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two delete error
+    std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two deletion error
 
-    return  std::make_unique<pcpp::HttpRequestLayer>(
+    auto layer = std::make_unique<pcpp::HttpRequestLayer>(
         rawBuffer,
         http_message.size(),
         nullptr,
         nullptr);
+
+    if (!layer) throw std::runtime_error("Invalid HTTP request Layer");
+    return layer;
 }
 
 std::unique_ptr<pcpp::HttpResponseLayer> DpiEngine::createHttpResponseLayer(const std::string &http_message)
 {
     uint8_t* rawBuffer = new uint8_t[http_message.size()]; // Pcappplusplus Layer class own the rawBuffer and call delete[].
-    std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two delete error
+    std::memcpy(rawBuffer, http_message.data(), http_message.size()); // I must pass by copy to avoid two deletion error
 
-    return std::make_unique<pcpp::HttpResponseLayer>(
+    auto layer =  std::make_unique<pcpp::HttpResponseLayer>(
         rawBuffer,
         http_message.size(),
         nullptr,
         nullptr);
+
+    if (!layer) throw std::runtime_error("Invalid HTTP response Layer");
+    return layer;
 }
 
 std::optional<std::string> DpiEngine::extractGzipContentFromResponse(const pcpp::HttpResponseLayer &response_layer)
@@ -203,59 +209,69 @@ std::optional<std::string> DpiEngine::extractGzipContentFromResponse(const pcpp:
     return {};
 }
 
-std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(const std::string& http_frame)
+bool DpiEngine::hasChunkedTerminator(const uint8_t *body, const size_t length)
 {
-    // Try parsing as an HTTP Response
-    if (http_frame.compare(0,4,"HTTP") == 0)
+    if (length < http_chunked_tail.size()) return false;
+
+    const std::string_view body_view(reinterpret_cast<const char*>(body), length);
+    return body_view.substr(length - http_chunked_tail.size()) == http_chunked_tail;
+}
+
+bool DpiEngine::isContentLengthComplete(const pcpp::HeaderField *field, const size_t actualPayloadSize)
+{
+    try
     {
-        auto http_response = createHttpResponseLayer(http_frame);
-        if (!http_response)
-        {
-            throw std::runtime_error("failed to create httpResponse layer");
-        }
-        if (!http_response->isHeaderComplete())
-        {
-            return httpLayerVariant{std::move(http_response)}; // Incomplete header
-        }
-        const pcpp::HeaderField* content_field = http_response->getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
-        if (content_field) //checking if the content-length field is equals to the http payload size
-        {
-            if(http_response->getContentLength() != http_response->getLayerPayloadSize()) {
-                return {};
-            }
+        const size_t expected = std::stoul(field->getFieldValue());
+        return expected == actualPayloadSize;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+std::optional<DpiEngine::httpLayerVariant> DpiEngine::handleHttpResponse(const std::string &http_frame)
+{
+    auto http_response = createHttpResponseLayer(http_frame);
+
+    const auto* content_field = http_response->getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
+    if (content_field)
+    {
+        if (!isContentLengthComplete(content_field, http_response->getLayerPayloadSize()))
+            return {};
+        return httpLayerVariant{std::move(http_response)};
+    }
+
+    const auto* encoding_field = http_response->getFieldByName(PCPP_HTTP_TRANSFER_ENCODING_FIELD);
+    if (encoding_field && encoding_field->getFieldValue() == "chunked")
+    {
+        if (hasChunkedTerminator(http_response->getLayerPayload(), http_response->getLayerPayloadSize()))
             return httpLayerVariant{std::move(http_response)};
-        }
-        const pcpp::HeaderField* encoding_field = http_response->getFieldByName(PCPP_HTTP_TRANSFER_ENCODING_FIELD);
-        if (encoding_field && encoding_field->getFieldValue() == "chunked")
-        {
-            // Check for terminating "\r\n0\r\n\r\n" chunk in the body
-            const uint8_t* body = http_response->getLayerPayload();
-            const size_t body_length = http_response->getLayerPayloadSize();
-            if (body_length >= 7 && std::string(reinterpret_cast<const char*>(body), body_length).substr(body_length - 7) == "\r\n0\r\n\r\n")
-            {
-                return httpLayerVariant{std::move(http_response)};;
-            }
-            return {};
-        }
-        return httpLayerVariant{std::move(http_response)};; // no body
+        return {};
     }
+
+    return httpLayerVariant{std::move(http_response)};
+}
+
+std::optional<DpiEngine::httpLayerVariant> DpiEngine::handleHttpRequest(const std::string &http_frame)
+{
     auto http_request = createHttpRequestLayer(http_frame);
-    if (!http_request)
+
+    const auto* content_field = http_request->getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
+    if (content_field)
     {
-        throw std::runtime_error("failed to create http request layer");
-    }
-    if (!http_request->isHeaderComplete())
-    {
-        return {}; // Incomplete header
-    }
-    const pcpp::HeaderField* contentField = http_request->getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
-    if (contentField)
-    {
-        const size_t expected_body_size = std::stoi(contentField->getFieldValue());
-        if(expected_body_size != http_request->getLayerPayloadSize()) {
+        if (!isContentLengthComplete(content_field, http_request->getLayerPayloadSize()))
             return {};
-        }
         return httpLayerVariant{std::move(http_request)};
     }
-    return httpLayerVariant{std::move(http_request)}; // Headers complete, no payload expected
+
+    return httpLayerVariant{std::move(http_request)};
+}
+
+std::optional<DpiEngine::httpLayerVariant> DpiEngine::isHttpMessageComplete(const std::string& http_frame)
+{
+    if (http_frame.rfind("HTTP", 0) == 0)
+        return handleHttpResponse(http_frame);
+    else
+        return handleHttpRequest(http_frame);
 }

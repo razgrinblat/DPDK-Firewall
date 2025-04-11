@@ -30,7 +30,7 @@ bool RuleTree::isIpSubset(const std::string& ip1,const std::string& ip2)
     return true;
 }
 
-std::optional<std::reference_wrapper<const std::string>> RuleTree::findIpMatch(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
+std::optional<std::string> RuleTree::findIpMatch(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
 {
     for (const auto& [tree_ip, val] : protocol_branch->children)
     {
@@ -219,20 +219,20 @@ bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& i
         }
         else if (_generic_ip_number > 0)
         {
-            if (findIpMatch(current, ip)) current = current->children[findIpMatch(current, ip)->get()];
+            if (findIpMatch(current, ip)) current = current->children[findIpMatch(current, ip).value()];
         }
         if (current->children.find(port) != current->children.end())
         {
             current = current->children[port];
-            return !(current->action == "block");
+            return current->action;
         }
         if (current->children.find("*") != current->children.end())
         {
             current = current->children["*"];
-            return !(current->action == "block");
+            return current->action;
         }
     }
-    return true;
+    return true; //black list
 }
 
 void RuleTree::buildTree()
@@ -270,33 +270,5 @@ bool RuleTree::handleOutboundForwarding(const pcpp::Packet &parsed_packet)
         // Check if the packet is allowed by the rule tree
         return isPacketAllowed("tcp", dst_ip, dst_port);
     }
-    return true; // No transport layer found
-}
-
-bool RuleTree::handleInboundForwarding(const pcpp::Packet &parsed_packet)
-{
-    const pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
-    if (!ipv4_layer) {
-        return false; // No IPv4 layer, cannot process the packet
-    }
-    const std::string src_ip = ipv4_layer->getSrcIPv4Address().toString();
-    std::string src_port;
-
-    if (parsed_packet.isPacketOfType(pcpp::UDP))
-    {
-        const pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>();
-        src_port = std::to_string(udp_layer->getSrcPort());
-
-        // Check if the packet is allowed by the rule tree
-        return isPacketAllowed("udp", src_ip, src_port);
-    }
-    if (parsed_packet.isPacketOfType(pcpp::TCP))
-    {
-        const pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>();
-        src_port = std::to_string(tcp_layer->getSrcPort());
-
-        // Check if the packet is allowed by the rule tree
-        return isPacketAllowed("tcp", src_ip, src_port);
-    }
-    return true; // No transport layer found
+    return false; // unsupported layer
 }

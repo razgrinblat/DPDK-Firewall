@@ -15,7 +15,7 @@ private:
     struct TreeNode
     {
         std::unordered_map<std::string, std::shared_ptr<TreeNode>> children;
-        std::string action; //True - accept, False - block
+        bool action; //True - accept, False - block
     };
 
     std::shared_ptr<TreeNode> _root;
@@ -28,7 +28,7 @@ private:
     RuleTree();
 
     bool isIpSubset(const std::string& ip1,const std::string& ip2);
-    std::optional<std::reference_wrapper<const std::string>> findIpMatch(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
+    std::optional<std::string> findIpMatch(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
     bool isIpConflict(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
     std::shared_ptr<TreeNode> getChild(const std::shared_ptr<TreeNode>& node, const std::string& key);
     void addRule(const Rule& rule);
@@ -47,6 +47,4 @@ public:
 
     void buildTree();
     bool handleOutboundForwarding(const pcpp::Packet& parsed_packet);
-    bool handleInboundForwarding(const pcpp::Packet& parsed_packet);
-
 };

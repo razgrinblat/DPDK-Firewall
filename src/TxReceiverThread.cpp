@@ -42,7 +42,7 @@ bool TxReceiverThread::run(uint32_t coreId)
             if(eth_layer && (eth_layer->getDestMac() == Config::DPDK_DEVICE2_MAC_ADDRESS || eth_layer->getDestMac() == Config::BROADCAST_MAC_ADDRESS))
             {
                 _packet_stats.consumePacket(parsed_packet);
-                if(parsed_packet.isPacketOfType(pcpp::ARP))
+                if (parsed_packet.isPacketOfType(pcpp::ARP))
                 {
                     const pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
                     _arp_handler.handleReceivedArpPacket(*arp_layer);
@@ -51,7 +51,7 @@ bool TxReceiverThread::run(uint32_t coreId)
                 {
                     packets_to_queue.push_back(mbuf_array[i]);
                 }
-                else if (_rule_tree.handleInboundForwarding(parsed_packet))
+                else if(parsed_packet.isPacketOfType(pcpp::TCP) || parsed_packet.isPacketOfType(pcpp::UDP))
                 {
                     packets_to_queue.push_back(mbuf_array[i]);
                 }
