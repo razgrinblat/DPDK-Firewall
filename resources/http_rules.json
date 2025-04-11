@@ -1,0 +1,11 @@
+{
+  "http_rules": {
+    "hosts": ["example.com"],
+    "url_path_words": ["login", "password", "admin"],
+    "content_types": ["application/json"],
+    "http_methods": ["DELETE"],
+    "user_agents": ["curl/7.68.0"],
+    "payload_words": [],
+    "max_content_length" : 0
+  }
+}
