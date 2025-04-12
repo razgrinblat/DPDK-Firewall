@@ -57,8 +57,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
         }
     }
 
-    //_dpi_engine.processDpiTcpPacket(tcp_packet);
-
+    //change client src port to firewall src port (PAT)
     const auto* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
     tcp_layer->getTcpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(tcp_hash));
 
@@ -86,8 +85,6 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
     else {
         throw std::runtime_error("Blocked unknown internet TCP packet");
     }
-
-    //_dpi_engine.processDpiTcpPacket(tcp_packet);
 
     if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");
 }

@@ -83,7 +83,7 @@ void EstablishedState::handleClientPacket(pcpp::Packet& tcp_packet, const uint32
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag)
     {
-        DpiEngine::getInstance().processDpiTcpPacket(tcp_packet);
+        DpiEngine::getInstance().processDpiTcpPacket(tcp_packet); // HTTP dpi processing
         _context->updateSession(tcp_hash, TCP_COMMON_TYPES::ESTABLISHED, packet_size, true);
     }
     else if (tcp_header.finFlag)
@@ -102,7 +102,7 @@ void EstablishedState::handleInternetPacket(pcpp::Packet& tcp_packet, const uint
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag)
     {
-        DpiEngine::getInstance().processDpiTcpPacket(tcp_packet);
+        DpiEngine::getInstance().processDpiTcpPacket(tcp_packet); // HTTP dpi processing
         _context->updateSession(tcp_hash, TCP_COMMON_TYPES::ESTABLISHED, packet_size, false);
     }
     else if (tcp_header.finFlag) {

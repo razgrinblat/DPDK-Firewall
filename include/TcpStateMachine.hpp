@@ -4,7 +4,6 @@
 #include "TcpCommonTypes.hpp"
 #include <memory>
 
-class DpiEngine;
 class TcpSessionHandler;
 
 // Base State class
