@@ -1,6 +1,8 @@
 #pragma once
 #include <unordered_map>
 #include <vector>
+#include <queue>
+#include <iostream>
 
 class AhoCorasick
 {
@@ -21,6 +23,7 @@ private:
     int _size; // the size of the trie
     int _root; // ID of the root node (0)
     std::vector<std::string> _patterns; // store actual pattern strings
+    int _word_id; //the last unique ID to each inserted word and is used for tracking matches
 
     /**
      * Calculates the suffix (failure) link for a given node
@@ -47,6 +50,5 @@ public:
      * Processes a given text, searching for all patterns inserted.
      * @return the number of all matched patterns
      */
-    int search();
-
+    int search(const std::string& text);
 };
