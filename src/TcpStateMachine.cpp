@@ -27,8 +27,7 @@ std::unique_ptr<TcpStateClass> TcpStateFactory::createState(const SessionTable::
 }
 
 // SynSentState implementation
-TCP_COMMON_TYPES::TcpState SynSentState::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                     const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState SynSentState::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.synFlag) {
         // SYN retransmission
@@ -39,32 +38,25 @@ TCP_COMMON_TYPES::TcpState SynSentState::handleClientPacket(pcpp::Packet& tcp_pa
     }
 }
 
-TCP_COMMON_TYPES::TcpState SynSentState::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                       const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState SynSentState::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.synFlag && tcp_header.ackFlag) {
         return TCP_COMMON_TYPES::SYN_RECEIVED;
     }
-    else {
-        throw std::runtime_error("Invalid internet packet in SYN_SENT state: " + tcp_packet.toString());
-    }
+    throw std::runtime_error("Invalid internet packet in SYN_SENT state: " + tcp_packet.toString());
 }
 
 // SynReceivedState implementation
-TCP_COMMON_TYPES::TcpState SynReceivedState::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                         const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState SynReceivedState::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag)
     {
         return TCP_COMMON_TYPES::ESTABLISHED;
     }
-    else {
-        throw std::runtime_error("Invalid client packet in SYN_RECEIVED state: " + tcp_packet.toString());
-    }
+    throw std::runtime_error("Invalid client packet in SYN_RECEIVED state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState SynReceivedState::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                           const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState SynReceivedState::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.synFlag && tcp_header.ackFlag)
     {
@@ -75,8 +67,7 @@ TCP_COMMON_TYPES::TcpState SynReceivedState::handleInternetPacket(pcpp::Packet& 
 }
 
 // EstablishedState implementation
-TCP_COMMON_TYPES::TcpState EstablishedState::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                         const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState EstablishedState::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag)
     {
@@ -90,8 +81,7 @@ TCP_COMMON_TYPES::TcpState EstablishedState::handleClientPacket(pcpp::Packet& tc
     throw std::runtime_error("Invalid client packet in ESTABLISHED state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState EstablishedState::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                           const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState EstablishedState::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag)
     {
@@ -105,8 +95,7 @@ TCP_COMMON_TYPES::TcpState EstablishedState::handleInternetPacket(pcpp::Packet& 
 }
 
 // FinWait1State implementation
-TCP_COMMON_TYPES::TcpState FinWait1State::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                      const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState FinWait1State::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.finFlag) {
         // FIN retransmission
@@ -119,8 +108,7 @@ TCP_COMMON_TYPES::TcpState FinWait1State::handleClientPacket(pcpp::Packet& tcp_p
     throw std::runtime_error("Invalid client packet in FIN_WAIT1 state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState FinWait1State::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                        const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState FinWait1State::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag) {
         return TCP_COMMON_TYPES::FIN_WAIT2;
@@ -132,8 +120,7 @@ TCP_COMMON_TYPES::TcpState FinWait1State::handleInternetPacket(pcpp::Packet& tcp
 }
 
 // FinWait2State implementation
-TCP_COMMON_TYPES::TcpState FinWait2State::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                      const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState FinWait2State::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag)
     {
@@ -142,8 +129,7 @@ TCP_COMMON_TYPES::TcpState FinWait2State::handleClientPacket(pcpp::Packet& tcp_p
     throw std::runtime_error("Invalid client packet in FIN_WAIT2 state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState FinWait2State::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                        const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState FinWait2State::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag) {
         // Delayed data transfer
@@ -156,8 +142,7 @@ TCP_COMMON_TYPES::TcpState FinWait2State::handleInternetPacket(pcpp::Packet& tcp
 }
 
 // CloseWaitState implementation
-TCP_COMMON_TYPES::TcpState CloseWaitState::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                       const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState CloseWaitState::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag && !tcp_header.finFlag)
     {
@@ -170,8 +155,7 @@ TCP_COMMON_TYPES::TcpState CloseWaitState::handleClientPacket(pcpp::Packet& tcp_
     throw std::runtime_error("Invalid client packet in CLOSE_WAIT state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState CloseWaitState::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                         const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState CloseWaitState::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.finFlag)
     {
@@ -187,8 +171,7 @@ TCP_COMMON_TYPES::TcpState CloseWaitState::handleInternetPacket(pcpp::Packet& tc
 }
 
 // LastAckState implementation
-TCP_COMMON_TYPES::TcpState LastAckState::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                     const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState LastAckState::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.finFlag) {
         // FIN retransmissions
@@ -197,8 +180,7 @@ TCP_COMMON_TYPES::TcpState LastAckState::handleClientPacket(pcpp::Packet& tcp_pa
     throw std::runtime_error("Invalid client packet in LAST_ACK state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState LastAckState::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                       const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState LastAckState::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag) {
         return TCP_COMMON_TYPES::TIME_WAIT;
@@ -207,8 +189,7 @@ TCP_COMMON_TYPES::TcpState LastAckState::handleInternetPacket(pcpp::Packet& tcp_
 }
 
 // TimeWaitState implementation
-TCP_COMMON_TYPES::TcpState TimeWaitState::handleClientPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                      const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState TimeWaitState::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag) {
         // Duplicate ACKs due to bad connection
@@ -217,8 +198,7 @@ TCP_COMMON_TYPES::TcpState TimeWaitState::handleClientPacket(pcpp::Packet& tcp_p
     throw std::runtime_error("Invalid client packet in TIME_WAIT state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState TimeWaitState::handleInternetPacket(pcpp::Packet& tcp_packet, const uint32_t tcp_hash,
-                                        const pcpp::tcphdr& tcp_header, const uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState TimeWaitState::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     if (tcp_header.ackFlag || tcp_header.finFlag)
     {
@@ -229,14 +209,12 @@ TCP_COMMON_TYPES::TcpState TimeWaitState::handleInternetPacket(pcpp::Packet& tcp
 }
 
 // UnknownState implementation (fallback)
-TCP_COMMON_TYPES::TcpState UnknownState::handleClientPacket(pcpp::Packet& tcp_packet, uint32_t tcp_hash,
-                                     const pcpp::tcphdr& tcp_header, uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState UnknownState::handleClientPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     throw std::runtime_error("Cannot process packet in UNKNOWN state: " + tcp_packet.toString());
 }
 
-TCP_COMMON_TYPES::TcpState UnknownState::handleInternetPacket(pcpp::Packet& tcp_packet, uint32_t tcp_hash,
-                                       const pcpp::tcphdr& tcp_header, uint32_t packet_size)
+TCP_COMMON_TYPES::TcpState UnknownState::handleInternetPacket(const pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header)
 {
     throw std::runtime_error("Cannot process packet in UNKNOWN state: " + tcp_packet.toString());
 }

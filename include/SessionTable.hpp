@@ -15,18 +15,27 @@
 #include "TcpCommonTypes.hpp"
 #include "TcpStateMachine.hpp"
 
+class DpiEngine; // forward declaration
+
 class SessionTable
 {
+
 public:
 
     using TcpState = TCP_COMMON_TYPES::TcpState;
     using Protocol = TCP_COMMON_TYPES::Protocol;
 
+    struct SessionStatics
+    {
+        uint32_t received_packet_count;
+        uint32_t sent_packet_count;
+        double avg_packet_size;
+    };
+
     struct Session
     {
         bool isAllowed;
         Protocol protocol;
-        TcpState current_state;
         pcpp::IPv4Address source_ip;
         pcpp::IPv4Address dst_ip;
         uint16_t source_port;
@@ -35,21 +44,22 @@ public:
         uint16_t firewall_port;
         std::unique_ptr<TcpStateClass> state_object;
 
-        uint32_t received_packet_count;
-        uint32_t sent_packet_count;
-        double avg_packet_size;
+        SessionStatics statics{};
 
-        Session(Protocol protocol, const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
-                uint16_t src_port, uint16_t dst_port, TcpState state);
+        Session(const Protocol protocol, const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
+                const uint16_t src_port, const uint16_t dst_port): isAllowed(true),protocol(protocol),
+                source_ip(src_ip), dst_ip(dst_ip),
+                source_port(src_port), dst_port(dst_port), firewall_port(0),state_object(nullptr){}
     };
 
     static SessionTable& getInstance();
     ~SessionTable();
 
     bool isSessionExists(uint32_t session_hash);
-    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, TcpState state, uint32_t packet_size, TcpSessionHandler* context = nullptr);
-    void updateSession(uint32_t session_hash, TcpState new_state, uint32_t packet_size, bool is_outbound, TcpSessionHandler* context = nullptr);
-    Session* getSession(uint32_t session_hash);
+    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, TcpState state, uint32_t packet_size, TcpSessionHandler* tcp_context = nullptr);
+    void updateSession(uint32_t session_hash, TcpState new_state, uint32_t packet_size, bool is_outbound, TcpSessionHandler* tcp_context = nullptr);
+    void processStateMachinePacket(uint32_t hash, pcpp::Packet& packet,
+        const pcpp::tcphdr& header,uint32_t packet_size, bool is_outbound, TcpSessionHandler* context);
     uint16_t getFirewallPort(uint32_t session_hash);
     bool isAllowed(uint32_t session_hash);
     void blockSession(uint32_t session_hash);
@@ -58,8 +68,12 @@ public:
 
 private:
     SessionTable();
+
+    uint16_t getSessionIdleTimeSeconds(const std::unique_ptr<Session>& session, const std::chrono::steady_clock::time_point& now) const;
+    bool shouldRemoveSession(const Session& session, uint16_t idleTime) const;
     void cleanUpIdleSessions();
     void runCleanUpThread();
+    void updateStatistics(const std::unique_ptr<Session>& session, uint32_t size, bool is_outbound);
     double calculateAvgPacketSize(double current_avg, uint32_t sent, uint32_t recv, uint32_t packet_size);
 
     std::unordered_map<uint32_t, std::unique_ptr<Session>> _session_cache;

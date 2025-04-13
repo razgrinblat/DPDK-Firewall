@@ -5,7 +5,6 @@
 #include <IPv4Layer.h>
 #include <PacketUtils.h>
 #include <SystemUtils.h>
-#include <DpiEngine.hpp>
 #include "SessionTable.hpp"
 #include "TcpCommonTypes.hpp"
 
@@ -15,10 +14,14 @@ class TcpSessionHandler
 {
 private:
     SessionTable& _session_table;
-    DpiEngine& _dpi_engine;
     PortAllocator& _port_allocator;
 
     TcpSessionHandler();
+
+    bool isNewSession(const pcpp::tcphdr& tcp_header) const;
+    bool isTerminationPacket(const pcpp::tcphdr& tcp_header) const;
+
+    void processExistingSession(uint32_t hash, pcpp::Packet& tcp_packet, const pcpp::tcphdr& tcp_header, uint32_t size, bool is_outbound);
     std::unique_ptr<SessionTable::Session> initTcpSession(const pcpp::Packet& tcp_packet) const;
     static const pcpp::tcphdr& extractTcpHeader(const pcpp::Packet& tcp_packet);
 

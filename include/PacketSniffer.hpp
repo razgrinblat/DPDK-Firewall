@@ -4,6 +4,7 @@
 #include "TxReceiverThread.hpp"
 #include "TxSenderThread.hpp"
 #include "WebSocketClient.hpp"
+#include "HttpRulesHandler.hpp"
 
 class PacketSniffer
 {

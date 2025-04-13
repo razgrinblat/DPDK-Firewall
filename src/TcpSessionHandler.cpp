@@ -1,7 +1,23 @@
 #include "TcpSessionHandler.hpp"
 
 TcpSessionHandler::TcpSessionHandler() : _session_table(SessionTable::getInstance()),
-    _dpi_engine(DpiEngine::getInstance()), _port_allocator(PortAllocator::getInstance()) {}
+_port_allocator(PortAllocator::getInstance()) {}
+
+bool TcpSessionHandler::isNewSession(const pcpp::tcphdr &tcp_header) const
+{
+    return tcp_header.synFlag && !tcp_header.ackFlag;
+}
+
+bool TcpSessionHandler::isTerminationPacket(const pcpp::tcphdr &tcp_header) const
+{
+    return tcp_header.rstFlag;
+}
+
+void TcpSessionHandler::processExistingSession(const uint32_t hash, pcpp::Packet &tcp_packet, const pcpp::tcphdr &tcp_header,
+                                               const uint32_t size, const bool is_outbound)
+{
+    _session_table.processStateMachinePacket(hash, tcp_packet, tcp_header, size, is_outbound, this);
+}
 
 TcpSessionHandler& TcpSessionHandler::getInstance()
 {
@@ -18,8 +34,7 @@ std::unique_ptr<SessionTable::Session> TcpSessionHandler::initTcpSession(const p
         ipv4_layer->getSrcIPv4Address(),
         ipv4_layer->getDstIPv4Address(),
         tcp_layer->getSrcPort(),
-        tcp_layer->getDstPort(),
-        TCP_COMMON_TYPES::UNKNOWN);
+        tcp_layer->getDstPort());
 }
 
 const pcpp::tcphdr& TcpSessionHandler::extractTcpHeader(const pcpp::Packet& tcp_packet)
@@ -37,34 +52,24 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
 
     if (_session_table.isSessionExists(tcp_hash))
     {
-        if (tcp_header.rstFlag)
+        if (isTerminationPacket(tcp_header))
         {
             _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, true, this);
         }
         else {
-            const SessionTable::Session* session = _session_table.getSession(tcp_hash);
-            const auto current_state = session->current_state;
-            const TCP_COMMON_TYPES::TcpState new_state = session->state_object->handleClientPacket(tcp_packet, tcp_hash, tcp_header, packet_size);
-            if (current_state == TCP_COMMON_TYPES::ESTABLISHED && new_state == TCP_COMMON_TYPES::ESTABLISHED)
-            {
-                DpiEngine::getInstance().processDpiTcpPacket(tcp_packet); // HTTP dpi processing
-            }
-
-            _session_table.updateSession(tcp_hash,new_state,packet_size,true,this);
+            processExistingSession(tcp_hash,tcp_packet,tcp_header,packet_size,true);
         }
     }
-    else
+    else if (isNewSession(tcp_header))
     {
-        if (tcp_header.synFlag) {
-            auto session = initTcpSession(tcp_packet);
-            _session_table.addNewSession(tcp_hash, std::move(session), TCP_COMMON_TYPES::SYN_SENT, packet_size, this);
-        }
-        else {
-            throw std::runtime_error("Invalid initial client packet" + tcp_packet.toString());
-        }
+        auto session = initTcpSession(tcp_packet);
+        _session_table.addNewSession(tcp_hash, std::move(session), TCP_COMMON_TYPES::SYN_SENT, packet_size, this);
+    }
+    else {
+        throw std::runtime_error("Invalid initial client packet");
     }
 
-    //change client src port to firewall src port (PAT)
+    // change client src port to firewall src port (PAT) before forwarding to internet
     const auto* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
     tcp_layer->getTcpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(tcp_hash));
 
@@ -77,26 +82,14 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
     const auto tcp_header = extractTcpHeader(tcp_packet);
     const uint32_t packet_size = tcp_packet.getRawPacket()->getRawDataLen();
 
-    if (_session_table.isSessionExists(tcp_hash))
-    {
-        if (tcp_header.rstFlag)
-        {
-            _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, false, this);
-        }
-        else
-        {
-            const SessionTable::Session* session = _session_table.getSession(tcp_hash);
-            const auto current_state = session->current_state;
-            const TCP_COMMON_TYPES::TcpState new_state = session->state_object->handleInternetPacket(tcp_packet, tcp_hash, tcp_header, packet_size);
-            if (current_state == TCP_COMMON_TYPES::ESTABLISHED && new_state == TCP_COMMON_TYPES::ESTABLISHED)
-            {
-                DpiEngine::getInstance().processDpiTcpPacket(tcp_packet); // HTTP dpi processing
-            }
-            _session_table.updateSession(tcp_hash,new_state,packet_size,false,this);
-        }
-    }
-    else {
+    if (!_session_table.isSessionExists(tcp_hash)) {
         throw std::runtime_error("Blocked unknown internet TCP packet");
+    }
+
+    if (isTerminationPacket(tcp_header)) {
+        _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, false, this);
+    } else {
+        processExistingSession(tcp_hash, tcp_packet, tcp_header, packet_size, false);
     }
 
     if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");

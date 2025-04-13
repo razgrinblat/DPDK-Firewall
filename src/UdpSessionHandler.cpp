@@ -12,8 +12,7 @@ std::unique_ptr<SessionTable::Session> UdpSessionHandler::initUdpSession(const p
        ipv4_layer->getSrcIPv4Address(),
        ipv4_layer->getDstIPv4Address(),
        udp_layer->getSrcPort(),
-       udp_layer->getDstPort(),
-       TCP_COMMON_TYPES::UDP
+       udp_layer->getDstPort()
    );
 }
 
