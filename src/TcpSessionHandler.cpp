@@ -43,7 +43,14 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
         }
         else {
             const SessionTable::Session* session = _session_table.getSession(tcp_hash);
-            session->state_object->handleClientPacket(tcp_packet, tcp_hash, tcp_header, packet_size);
+            const auto current_state = session->current_state;
+            const TCP_COMMON_TYPES::TcpState new_state = session->state_object->handleClientPacket(tcp_packet, tcp_hash, tcp_header, packet_size);
+            if (current_state == TCP_COMMON_TYPES::ESTABLISHED && new_state == TCP_COMMON_TYPES::ESTABLISHED)
+            {
+                DpiEngine::getInstance().processDpiTcpPacket(tcp_packet); // HTTP dpi processing
+            }
+
+            _session_table.updateSession(tcp_hash,new_state,packet_size,true,this);
         }
     }
     else
@@ -53,7 +60,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
             _session_table.addNewSession(tcp_hash, std::move(session), TCP_COMMON_TYPES::SYN_SENT, packet_size, this);
         }
         else {
-            throw std::runtime_error("Invalid initial client packet");
+            throw std::runtime_error("Invalid initial client packet" + tcp_packet.toString());
         }
     }
 
@@ -79,7 +86,13 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
         else
         {
             const SessionTable::Session* session = _session_table.getSession(tcp_hash);
-            session->state_object->handleInternetPacket(tcp_packet, tcp_hash, tcp_header, packet_size);
+            const auto current_state = session->current_state;
+            const TCP_COMMON_TYPES::TcpState new_state = session->state_object->handleInternetPacket(tcp_packet, tcp_hash, tcp_header, packet_size);
+            if (current_state == TCP_COMMON_TYPES::ESTABLISHED && new_state == TCP_COMMON_TYPES::ESTABLISHED)
+            {
+                DpiEngine::getInstance().processDpiTcpPacket(tcp_packet); // HTTP dpi processing
+            }
+            _session_table.updateSession(tcp_hash,new_state,packet_size,false,this);
         }
     }
     else {
@@ -87,9 +100,4 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
     }
 
     if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");
-}
-
-void TcpSessionHandler::updateSession(const uint32_t tcp_hash, const SessionTable::TcpState new_state, const uint32_t packet_size, const bool is_outbound)
-{
-    _session_table.updateSession(tcp_hash, new_state, packet_size, is_outbound, this);
 }

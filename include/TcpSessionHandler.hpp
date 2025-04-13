@@ -25,7 +25,6 @@ private:
 public:
     static TcpSessionHandler& getInstance();
 
-    void updateSession(uint32_t tcp_hash, SessionTable::TcpState new_state, uint32_t packet_size, bool is_outbound);
     void processClientTcpPacket(pcpp::Packet& tcp_packet);
     void isValidInternetTcpPacket(pcpp::Packet& tcp_packet);
 };

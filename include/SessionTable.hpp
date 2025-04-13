@@ -70,6 +70,3 @@ private:
     PortAllocator& _port_allocator;
     WebSocketClient& _ws_client;
 };
-
-// Forward declare factory
-std::unique_ptr<TcpStateClass> createTcpState(SessionTable::TcpState state, TcpSessionHandler* context);
