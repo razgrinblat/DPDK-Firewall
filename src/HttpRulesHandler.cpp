@@ -133,13 +133,5 @@ bool HttpRulesHandler::allowInboundForwarding(const pcpp::HttpResponseLayer &res
 std::optional<std::string> HttpRulesHandler::allowByPayloadForwarding(const std::string &payload_content)
 {
     std::shared_lock lock(_rules_mutex);
-    const auto& payload_words_set = _http_rule.payload_words;
-    for (const auto& word : payload_words_set)
-    {
-        if (payload_content.find(word) != std::string::npos)
-        {
-            return {word};
-        }
-    }
-    return {};
+    return AhoCorasick::getInstance().search(payload_content);
 }

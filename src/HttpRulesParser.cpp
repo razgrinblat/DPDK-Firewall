@@ -3,6 +3,16 @@
 HttpRulesParser::HttpRulesParser(const std::string &file_path) : RulesParser(file_path), _http_rule_sets() {
 }
 
+void HttpRulesParser::loadPatternsToAhoCorasick() const
+{
+    AhoCorasick::getInstance().clear();
+    for( const auto& pattern : _http_rule_sets.payload_words)
+    {
+        AhoCorasick::getInstance().addString(pattern);
+    }
+    AhoCorasick::getInstance().prepare();
+}
+
 void HttpRulesParser::loadSetFromJson(const Json::Value &json_array, std::unordered_set<std::string> &target_set,
                                       const std::string &field_name)
 {
@@ -44,6 +54,7 @@ void HttpRulesParser::loadRules()
         openAndParseRulesFile();
         const Json::Value& http_rules = _root["http_rules"];
         loadHttpRules(http_rules);
+        loadPatternsToAhoCorasick();
 
         if (http_rules.isMember("max_content_length") && http_rules["max_content_length"].isInt() && http_rules["max_content_length"].asInt() > 0)
         {

@@ -3,6 +3,7 @@
 #include <shared_mutex>
 #include "InotifyWrapper.hpp"
 #include "HttpRulesParser.hpp"
+#include "AhoCorasick.hpp"
 
 class HttpRulesHandler
 {

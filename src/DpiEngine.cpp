@@ -33,18 +33,18 @@ void DpiEngine::processHttpResponse(const std::unique_ptr<pcpp::HttpResponseLaye
         if (const auto decompress_date =extractGzipContentFromResponse(layer))
         {
             std::cout << decompress_date.value() << std::endl;
-            if (const auto word = _http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
+            if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
-                std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed! because the word: '" << word.value() << "' is in the html text" << std::endl;
+                std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed! because:\n" << patterns.value() << "in the html text" << std::endl;
             }
         }
         else if (!layer.getFieldByName(PCPP_HTTP_CONTENT_ENCODING_FIELD))
         {
-            if (const auto word = _http_rules_handler.allowByPayloadForwarding(reinterpret_cast<const char*>(layer.getData())))
+            if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(reinterpret_cast<const char*>(layer.getData())))
             {
                 _session_table.blockSession(tcp_data.flowKey);
-                std::cout << "Session to Ip: " <<tcp_data.dstIP << " is closed! because the word: " << word.value() << " is in the html text" << std::endl;
+                std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed! because:\n" << patterns.value() << "in the html text" << std::endl;
             }
         }
     }

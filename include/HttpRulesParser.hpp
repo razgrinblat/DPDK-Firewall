@@ -3,6 +3,7 @@
 #include "Config.hpp"
 #include <unordered_set>
 #include <iostream>
+#include "AhoCorasick.hpp"
 
 class HttpRulesParser : public RulesParser
 {
@@ -37,9 +38,9 @@ private:
 
     HttpRulesParser(const std::string& file_path);
 
+    void loadPatternsToAhoCorasick() const;
+
     void loadSetFromJson(const Json::Value& json_array, std::unordered_set<std::string>& target_set, const std::string& field_name);
+
     void loadHttpRules(const Json::Value& http_rules);
-
-
-
 };

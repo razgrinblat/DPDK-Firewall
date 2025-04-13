@@ -58,10 +58,25 @@ AhoCorasick::AhoCorasick(): _size(0), _root(0), _word_id(0)
     _size++;
 }
 
+AhoCorasick & AhoCorasick::getInstance()
+{
+    static AhoCorasick instance;
+    return instance;
+}
+
+void AhoCorasick::clear()
+{
+    _patterns.clear();
+    _trie.clear();
+    _trie.push_back(Vertex{}); // Add root node
+    _size = 1;      // Only the root node remains
+    _word_id = 0;    // Reset word ID counter
+
+}
+
 void AhoCorasick::addString(const std::string &pattern)
 {
     _patterns.push_back(pattern);
-    _words_length.push_back(pattern.length());
     int curr_vertex = _root;
     for (const char c : pattern)
     {
@@ -99,9 +114,9 @@ void AhoCorasick::prepare()
     }
 }
 
-int AhoCorasick::search(const std::string& text)
+std::optional<std::string> AhoCorasick::search(const std::string& text)
 {
-    int total_matches = 0;
+    std::unordered_map<std::string, int> match_table;
     int current_node = _root;
 
     for (int i = 0 ; i < text.size(); ++i)
@@ -127,11 +142,23 @@ int AhoCorasick::search(const std::string& text)
         // Check for pattern matches at the current node
         for (const int word_id : _trie[current_node].output_links)
         {
-            //const int start_index = i + 1 - _patterns[word_id].length();
-            // std::cout << "Match found: \"" << _patterns[word_id]
-            //           << "\" at index " << start_index << std::endl;
-            total_matches++;
+            match_table[_patterns[word_id]]++;
         }
     }
-    return total_matches;
+
+    // If no matches found
+    if (match_table.empty())
+    {
+        return {};
+    }
+
+    // Collect matches and their counts into a stringstream
+    std::stringstream result_stream;
+    for (const auto& [pattern, count] : match_table)
+    {
+        result_stream << "\"" << pattern << "\" found " << count << " times\n";
+    }
+
+    // Return the formatted string
+    return result_stream.str();
 }
