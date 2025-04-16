@@ -47,6 +47,7 @@ const pcpp::tcphdr& TcpSessionHandler::extractTcpHeader(const pcpp::Packet& tcp_
 void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
 {
     const uint32_t tcp_hash = hash5Tuple(&tcp_packet);
+
     const auto tcp_header = extractTcpHeader(tcp_packet);
     const uint32_t packet_size = tcp_packet.getRawPacket()->getRawDataLen();
 
@@ -79,6 +80,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
 void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
 {
     const uint32_t tcp_hash = hash5Tuple(&tcp_packet, false);
+
     const auto tcp_header = extractTcpHeader(tcp_packet);
     const uint32_t packet_size = tcp_packet.getRawPacket()->getRawDataLen();
 
@@ -86,9 +88,12 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
         throw std::runtime_error("Blocked unknown internet TCP packet");
     }
 
-    if (isTerminationPacket(tcp_header)) {
+    if (isTerminationPacket(tcp_header))
+    {
         _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, false, this);
-    } else {
+    }
+    else
+    {
         processExistingSession(tcp_hash, tcp_packet, tcp_header, packet_size, false);
     }
 

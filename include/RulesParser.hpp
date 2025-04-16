@@ -7,6 +7,7 @@ class RulesParser
 {
 protected:
     std::ifstream _file;
+    std::string _file_path;
     Json::Value _root;
 
 public:

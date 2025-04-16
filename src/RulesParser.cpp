@@ -1,10 +1,10 @@
 #include "RulesParser.hpp"
 
-RulesParser::RulesParser(const std::string &file_path) : _file(file_path)
+RulesParser::RulesParser(const std::string &file_path) : _file(file_path), _file_path(file_path)
 {
     _file.open(file_path);
     if (!_file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + file_path);
+        throw std::runtime_error("Failed to open file: " + _file_path);
     }
 }
 
@@ -18,7 +18,7 @@ RulesParser::~RulesParser()
 void RulesParser::openAndParseRulesFile()
 {
     if (!_file.is_open()) {
-        throw std::runtime_error("Failed to open firewall_rules.json");
+        throw std::runtime_error("Failed to open file: " + _file_path);
     }
 
     Json::Reader reader;

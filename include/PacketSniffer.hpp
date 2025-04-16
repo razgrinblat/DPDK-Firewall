@@ -5,6 +5,7 @@
 #include "TxSenderThread.hpp"
 #include "WebSocketClient.hpp"
 #include "HttpRulesHandler.hpp"
+#include "WebReceiverHandler.hpp"
 
 class PacketSniffer
 {
@@ -23,7 +24,7 @@ private:
     SessionTable& _session_table;
     ClientsManager& _clients_manager;
     PortAllocator& _port_allocator;
-
+    WebReceiverHandler& _web_receiver_handler;
 
     void buildFirewallRules() const;
     void openDpdkDevices();

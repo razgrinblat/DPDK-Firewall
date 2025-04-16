@@ -42,7 +42,7 @@ ClientsManager & ClientsManager::getInstance()
 void ClientsManager::processClientPacket(const pcpp::Packet& packet)
 {
     const pcpp::IPv4Layer* ipv4_layer = packet.getLayerOfType<pcpp::IPv4Layer>();
-    if (!ipv4_layer) return; //No IPv4 layer, cannot process the packet
+    if (!ipv4_layer || ipv4_layer->getSrcIPv4Address() == Config::DPDK_DEVICE2_IP) return; //No IPv4 layer, cannot process the packet
 
     const std::string& src_ip = ipv4_layer->getSrcIPAddress().toString();
     const pcpp::MacAddress& src_mac = packet.getLayerOfType<pcpp::EthLayer>()->getSourceMac();

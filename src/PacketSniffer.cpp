@@ -56,10 +56,16 @@ void PacketSniffer::startingDpdkThreads()
 
 void PacketSniffer::startingWsThreads()
 {
-    _ws_client.start(Config::WEBSOCKET_PATH);
-    _ws_client.setOnConnectCallBack([this] {
-        _ws_manager_thread = std::thread(&PacketSniffer::runWsManagerThread,this);
-    });
+    try {
+        _ws_client.start(Config::WEBSOCKET_PATH);
+        _ws_client.setOnConnectCallBack([this] {
+            _ws_manager_thread = std::thread(&PacketSniffer::runWsManagerThread,this);
+        });
+        _ws_client.setOnMessageCallBack(std::bind(&WebReceiverHandler::webMessageCallBack,&_web_receiver_handler,std::placeholders::_1));
+    }
+    catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+    }
 }
 
 void PacketSniffer::runWsManagerThread()
@@ -89,7 +95,7 @@ void PacketSniffer::closeDevices()
 PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true),
 _rule_tree(RuleTree::getInstance()),_http_rules_handler(HttpRulesHandler::getInstance()), _ws_client(WebSocketClient::getInstance()),
 _packet_stats(PacketStats::getInstance()), _arp_handler(ArpHandler::getInstance()), _session_table(SessionTable::getInstance()),
-_clients_manager(ClientsManager::getInstance()), _port_allocator(PortAllocator::getInstance())
+_clients_manager(ClientsManager::getInstance()), _port_allocator(PortAllocator::getInstance()), _web_receiver_handler(WebReceiverHandler::getInstance())
 {
     buildFirewallRules();
     openDpdkDevices();
@@ -99,7 +105,6 @@ _clients_manager(ClientsManager::getInstance()), _port_allocator(PortAllocator::
 
 PacketSniffer::~PacketSniffer()
 {
-    _ws_client.stop();
     if (_ws_manager_thread.joinable())
     {
         _ws_manager_thread.join();
