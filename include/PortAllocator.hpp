@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <random>
 #include <shared_mutex>
+#include <json/json.h>
+#include <WebSocketClient.hpp>
 #include <iomanip>
 #include <iostream>
 
@@ -29,5 +31,6 @@ public:
     uint16_t allocatePort(const pcpp::IPv4Address& client_ip, uint16_t client_port);
     void releasePort(uint16_t port);
     void printPortsTable();
+    void sendPortsToBackend();
 
 };

@@ -3,7 +3,7 @@
 
 SessionTable::SessionTable()
     : _lru_list(Config::MAX_SESSIONS), _stop_flag(false),
-      _port_allocator(PortAllocator::getInstance()), _ws_client(WebSocketClient::getInstance())
+      _port_allocator(PortAllocator::getInstance())
 {
     _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
@@ -310,5 +310,5 @@ void SessionTable::sendTableToBackend()
     const Json::StreamWriterBuilder writer;
     const std::string message = writeString(writer, active_sessions);
     // Send message via WebSocket
-    _ws_client.send(message);
+    WebSocketClient::getInstance().send(message);
 }

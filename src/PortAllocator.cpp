@@ -61,3 +61,30 @@ void PortAllocator::printPortsTable()
          << std::setw(15) << ip_port_pair.second << std::endl;
     }
 }
+
+void PortAllocator::sendPortsToBackend()
+{
+    Json::Value pat_table;
+    pat_table["type"] = "active ports";
+    Json::Value data(Json::arrayValue);
+
+    std::shared_lock lock(_table_mutex);
+
+    for (const auto&[firewall_port, client_ip_port_pair] : _ports_in_use_table)
+    {
+        Json::Value element;
+        element["client_ip"] = client_ip_port_pair.first.toString();
+        element["client_port"] = client_ip_port_pair.second;
+        element["firewall_port"] = firewall_port;
+
+        data.append(element);
+    }
+
+    pat_table["data"] = data;
+
+    // Convert JSON object to string
+    const Json::StreamWriterBuilder writer;
+    const std::string message = writeString(writer, pat_table);
+    // Send message via WebSocket
+    WebSocketClient::getInstance().send(message);
+}

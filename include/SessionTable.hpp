@@ -82,5 +82,4 @@ private:
     std::atomic<bool> _stop_flag;
     std::thread _clean_up_thread;
     PortAllocator& _port_allocator;
-    WebSocketClient& _ws_client;
 };

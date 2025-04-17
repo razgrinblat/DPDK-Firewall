@@ -26,7 +26,7 @@ void IpRulesParser::loadRules()
                     rule["src_ip"].asString(),
                     rule["src_port"].asString(),
                     rule["dst_ip"].asString(),
-                    convertPortToString(rule["dst_port"]),
+                    rule["dst_port"].asString(),
                     rule["action"].asString());
             }
         }
@@ -103,10 +103,6 @@ void IpRulesParser::validateRule(const Json::Value& rule)
     if (!isValidIPv4(dst_ip))
     {
         throw std::invalid_argument("Invalid IPv4 Address");
-    }
-    if (!(rule["dst_port"].isInt() || (rule["dst_port"].isString() && rule["dst_port"].asString() == "*")))
-    {
-        throw std::invalid_argument("Field 'port' must be an integer or '*'");
     }
     if (rule["dst_port"].isInt())
     {

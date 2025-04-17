@@ -2,6 +2,6 @@
   "rules" :
   [
     { "name" : "allow_tcp",  "action" : "accept", "protocol" : "tcp","src_ip" : "*.*.*.*", "src_port" : "*", "dst_ip" : "*.*.*.*", "dst_port" : "*", "is_active" : false},
-    { "name" : "allow_tcp",  "action" : "accept", "protocol" : "tcp","src_ip" : "*.*.*.*", "src_port" : "80", "dst_ip" : "2.2.2.2", "dst_port" : "*", "is_active" : false}
+    { "name" : "allow_udp",  "action" : "accept", "protocol" : "tcp","src_ip" : "*.*.*.*", "src_port" : "80", "dst_ip" : "2.2.2.2", "dst_port" : "*", "is_active" : false}
   ]
 }
