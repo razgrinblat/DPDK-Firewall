@@ -16,7 +16,7 @@ class IpRulesParser : public RulesParser
 {
 private:
 
-    std::unordered_set<Rule> _current_rules;
+    std::vector<Rule> _current_rules;
 
     IpRulesParser(const std::string& file_path);
     bool isValidIPv4(const std::string& ip);
@@ -30,6 +30,6 @@ public:
     static IpRulesParser& getInstance(const std::string& file_path);
 
     void loadRules() override;
-    const std::unordered_set<Rule>& getCurrentRules();
+    const std::vector<Rule>& getCurrentRules();
 
 };

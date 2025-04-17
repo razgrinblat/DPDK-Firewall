@@ -23,12 +23,12 @@ void WebReceiverHandler::webMessageCallBack(const std::string& text)
         if (root.isMember("rules"))
         {
             //handle ip rules update from the web
-            writeRulesToFile(root.asString(),Config::IP_RULES_PATH);
+            writeRulesToFile(root.toStyledString(),Config::IP_RULES_PATH);
         }
         else if (root.isMember("dpi_rules"))
         {
             //handle DPI rules update from the web
-            writeRulesToFile(root.asString(), Config::HTTP_RULES_PATH);
+            writeRulesToFile(root.toStyledString(), Config::HTTP_RULES_PATH);
         }
     }
     else {

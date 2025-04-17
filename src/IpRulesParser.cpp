@@ -10,7 +10,6 @@ void IpRulesParser::loadRules()
 {
     _current_rules.clear();
     _root.clear();
-
     openAndParseRulesFile();
     int rule_index = 1;
     static bool already_loaded = false;
@@ -21,14 +20,14 @@ void IpRulesParser::loadRules()
             validateRule(rule);
             if(rule["is_active"].asBool())
             {
-                const auto is_inserted = _current_rules.insert({
+                const auto is_inserted = _current_rules.emplace_back(
+                    rule["name"].asString(),
                     rule["protocol"].asString(),
+                    rule["src_ip"].asString(),
+                    rule["src_port"].asString(),
                     rule["dst_ip"].asString(),
                     convertPortToString(rule["dst_port"]),
-                    rule["action"].asString()});
-                if (!is_inserted.second) {
-                    throw std::invalid_argument("Warning - This rule is already exist!");
-                }
+                    rule["action"].asString());
             }
         }
         catch (const std::exception& e)
@@ -50,7 +49,7 @@ void IpRulesParser::loadRules()
     already_loaded = true;
 }
 
-const std::unordered_set<Rule> & IpRulesParser::getCurrentRules()
+const std::vector<Rule> & IpRulesParser::getCurrentRules()
 {
     return _current_rules;
 }
@@ -91,9 +90,9 @@ bool IpRulesParser::isValidIPv4(const std::string &ip)
 void IpRulesParser::validateRule(const Json::Value& rule)
 {
     const std::string action = rule["action"].asString();
-    if (action != "block")
+    if (action != "block" && action != "accept")
     {
-        throw std::invalid_argument("Field 'action' must be 'block' - black list");
+        throw std::invalid_argument("Field 'action' must be 'block' or 'accept'");
     }
     const std::string protocol = rule["protocol"].asString();
     if (protocol != "tcp" && protocol != "udp")

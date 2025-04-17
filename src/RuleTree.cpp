@@ -1,191 +1,83 @@
 #include "RuleTree.hpp"
 
 RuleTree::RuleTree() : _root(std::make_shared<TreeNode>()),
-_ip_rules_parser(IpRulesParser::getInstance(Config::IP_RULES_PATH)), _generic_ip_number(0)
+                       _ip_rules_parser(IpRulesParser::getInstance(Config::IP_RULES_PATH)), _ws(WebSocketClient::getInstance())
 {
     _file_watcher.addWatch(Config::IP_RULES_PATH, std::bind(&RuleTree::FileEventCallback, this));
     _file_watcher.startWatching();
 }
 
-bool RuleTree::isIpSubset(const std::string& ip1,const std::string& ip2)
+std::shared_ptr<RuleTree::TreeNode> RuleTree::getOrCreateChild(const std::shared_ptr<TreeNode> &node, const std::string &key)
 {
-    std::istringstream ss1(ip1);
-    std::istringstream ss2(ip2);
-
-    std::string ip1_octet;
-    std::string ip2_octet;
-
-    for (int i = 0; i < Config::IP_OCTETS; i++)
+    if (node->children.find(key) == node->children.end())
     {
-        std::getline(ss1,ip1_octet,'.');
-        std::getline(ss2,ip2_octet,'.');
-
-        if (ip1_octet == "*" || ip2_octet == "*") {
-            continue;
-        }
-        if (ip1_octet != ip2_octet) {
-            return false;
-        }
+        node->children[key] = std::make_shared<TreeNode>();
     }
-    return true;
+    return node->children[key];
 }
 
-std::optional<std::string> RuleTree::findIpMatch(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
+std::shared_ptr<RuleTree::TreeNode> RuleTree::addNodeWithConflictCheck(const std::shared_ptr<TreeNode> &node,
+    const std::string &key, const std::string &wild_card, const std::string &error_message)
 {
-    for (const auto& [tree_ip, val] : protocol_branch->children)
+    //Rule conflict because generic ip/port cant be above specific rule
+    if (node->children.size() == 0)
     {
-        if (isIpSubset(tree_ip, dst_ip))
-        {
-            return tree_ip;
-        }
+        return getOrCreateChild(node, key);
     }
-    return {};
+    if (key != wild_card && node->children.find(wild_card) != node->children.end())
+    {
+        throw std::invalid_argument(error_message);
+    }
+    return getOrCreateChild(node, key);
 }
 
-bool RuleTree::isIpConflict(const std::shared_ptr<TreeNode> &protocol_branch, const std::string &dst_ip)
+void RuleTree::resetTree()
 {
-    return findIpMatch(protocol_branch, dst_ip).has_value();
-}
-
-std::shared_ptr<RuleTree::TreeNode> RuleTree::getChild(const std::shared_ptr<TreeNode> &node, const std::string &key)
-{
-    auto it = node->children.find(key);
-    if (it == node->children.end()) {
-        throw std::runtime_error("Node with key '" + key + "' not found in the tree!");
-    }
-    return it->second;
+    std::unique_lock lock(_tree_mutex);
+    _root = std::make_shared<TreeNode>();
 }
 
 void RuleTree::addRule(const Rule& rule)
 {
     std::unique_lock lock(_tree_mutex);
-    auto current = _root;
-    if(current->children.find(rule.getProtocol()) == current->children.end())
-    {
-        current->children[rule.getProtocol()] = std::make_shared<TreeNode>();
-    }
-    current = current->children[rule.getProtocol()];
-    if (isIpConflict(current, rule.getDstIp()))
-    {
-        throw std::invalid_argument("[RULE CONFLICT] Conflicting rules by IP address prevent adding rule: " + rule.toString() + ". Delete conflicting rules to proceed.");
-    }
-    if (current->children.find(rule.getDstIp()) == current->children.end())
-    {
-        current->children[rule.getDstIp()] = std::make_shared<TreeNode>();
-    }
-    current = current->children[rule.getDstIp()];
-    const std::string dst_port = rule.getDstPort();
-    if (dst_port == "*" && current->children.size() > 0)
-    {
-        throw std::invalid_argument("[RULE CONFLICT] Conflicting rules by Port number prevent adding rule: " + rule.toString() + ". Delete conflicting rules to proceed.");
-    }
-    if (current->children.find("*") != current->children.end())
-    {
-        throw std::invalid_argument("[RULE CONFLICT] General port rule prevents adding rule: " + rule.toString());
-    }
-    if (current->children.find(dst_port) == current->children.end())
-    {
-        current->children[dst_port] = std::make_shared<TreeNode>();
-    }
-    current = current->children[dst_port];
+    std::shared_ptr<TreeNode> current = _root;
+
+    // Step 1: Protocol
+    current = getOrCreateChild(current, rule.getProtocol());
+    // Step 2: Source IP
+    current = addNodeWithConflictCheck(current, rule.getSrcIp(), GENERIC_IP,
+        "[RULE CONFLICT] Conflicting rules by Source IP address prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    // Step 3: Source Port
+    current = addNodeWithConflictCheck(current, rule.getSrcPort(), "*",
+        "[RULE CONFLICT] Conflicting rules by Source Port number prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    // Step 4: Destination IP
+    current = addNodeWithConflictCheck(current, rule.getDstIp(), GENERIC_IP,
+        "[RULE CONFLICT] Conflicting rules by Dest IP address prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    // Step 5: Destination Port
+    current = addNodeWithConflictCheck(current, rule.getDstPort(), "*",
+        "[RULE CONFLICT] Conflicting rules by Destination Port number prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    // Final: Set action
     current->action = rule.getAction();
-    if (rule.getDstIp().find('*') != std::string::npos) {
-        _generic_ip_number++;
-    }
 }
 
-void RuleTree::deleteRule(const Rule &rule)
-{
-    if (_conflicted_rules.find(rule) != _conflicted_rules.end())
-    {
-        _conflicted_rules.erase(rule);
-        return;
-    }
-    std::unique_lock lock(_tree_mutex);
-    auto current = _root;
-
-    std::pair delete_node(_root, rule.getProtocol());
-
-    current = getChild(current,rule.getProtocol());
-    if (current->children.size() > 1)
-    {
-        delete_node = std::make_pair(current,rule.getDstIp());
-    }
-    current = getChild(current,rule.getDstIp());
-
-    if (current->children.size() > 1)
-    {
-        delete_node = std::make_pair(current,rule.getDstPort());
-    }
-    current = getChild(current,rule.getDstPort());
-
-    delete_node.first->children.erase(delete_node.second);
-    if (rule.getDstIp().find('*') != std::string::npos) {
-        _generic_ip_number--;
-    }
-}
-
-void RuleTree::resolveConflictedRules(const std::unordered_set<Rule> &current_rules)
-{
-    for (auto it = _conflicted_rules.begin(); it != _conflicted_rules.end();) // trying to solve and add conflicted rules
-    {
-        const auto& rule = *it;
-        if (current_rules.find(rule) != current_rules.end())
-        {
-            try {
-                addRule(rule);
-                std::cout << "Adding new rule -> " << rule << std::endl;
-                it = _conflicted_rules.erase(it);
-            }
-            catch (const std::invalid_argument& e) // there is a rule conflict
-            {
-                std::cerr << e.what() << std::endl;
-                ++it;
-            }
-        }
-        else {
-            it = _conflicted_rules.erase(it);
-        }
-    }
-}
-
-void RuleTree::deletingRulesEventHandler(const std::unordered_set<Rule> &previous_rules,
-    const std::unordered_set<Rule> &current_rules)
-{
-    for (const auto& rule : previous_rules)
-    {
-        if (current_rules.find(rule) == current_rules.end()) // rule was deleted
-        {
-            deleteRule(rule);
-            std::cout << "Deleting old rule -> " << rule << std::endl;
-        }
-    }
-}
-
-void RuleTree::insertingRulesEventHandler(const std::unordered_set<Rule> &previous_rules,
-    const std::unordered_set<Rule> &current_rules)
+void RuleTree::insertingRulesEventHandler(const std::vector<Rule> &current_rules)
 {
     for (const auto& rule : current_rules)
     {
-        if(previous_rules.find(rule) == previous_rules.end()) // new Rule added
+        try {
+            addRule(rule);
+            std::cout << "Adding new rule -> " << rule << std::endl;
+        }
+        catch (const std::invalid_argument& e) // there is a rule conflict
         {
-            try {
-                addRule(rule);
-                std::cout << "Adding new rule -> " << rule << std::endl;
-            }
-            catch (const std::invalid_argument& e) // there is a rule conflict
-            {
-                std::cerr << e.what() << std::endl;
-                _conflicted_rules.insert(rule);
-            }
+            std::cerr << e.what() << std::endl;
+            _ws.send(sendConflictedMsgToBackend(e.what()));
         }
     }
 }
 
 void RuleTree::FileEventCallback()
 {
-    // save copy for previous rules copy and load new one - current_rules
-    const auto previous_rules = _ip_rules_parser.getCurrentRules();
     try {
         _ip_rules_parser.loadRules();
     }
@@ -193,11 +85,9 @@ void RuleTree::FileEventCallback()
         std::cerr << e.what() << std::endl;
         return;
     }
-    const auto current_rules = _ip_rules_parser.getCurrentRules();
-
-    deletingRulesEventHandler(previous_rules, current_rules);
-    resolveConflictedRules(current_rules); //trying to resolve and add conflicted rules.
-    insertingRulesEventHandler(previous_rules, current_rules);
+    const auto& current_rules = _ip_rules_parser.getCurrentRules();
+    resetTree();
+    insertingRulesEventHandler(current_rules);
 }
 
 RuleTree & RuleTree::getInstance()
@@ -206,33 +96,26 @@ RuleTree & RuleTree::getInstance()
     return instance;
 }
 
-bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& ip, const std::string& port)
+std::string RuleTree::sendConflictedMsgToBackend(const std::string& msg)
 {
-    std::shared_lock lock(_tree_mutex);
-    auto current = _root;
-    if(current->children.find(protocol) != current->children.end())
-    {
-        current  = current->children[protocol];
-        if (current->children.find(ip) != current->children.end())
-        {
-            current = current->children[ip];
-        }
-        else if (_generic_ip_number > 0)
-        {
-            if (findIpMatch(current, ip)) current = current->children[findIpMatch(current, ip).value()];
-        }
-        if (current->children.find(port) != current->children.end())
-        {
-            current = current->children[port];
-            return current->action;
-        }
-        if (current->children.find("*") != current->children.end())
-        {
-            current = current->children["*"];
-            return current->action;
-        }
-    }
-    return true; //black list
+    Json::Value rule_conflict;
+    rule_conflict["type"] = "rule conflict";
+    rule_conflict["message"] = msg;
+    return rule_conflict.toStyledString();
+}
+
+std::shared_ptr<RuleTree::TreeNode> RuleTree::findChildOrGeneric(const std::shared_ptr<TreeNode> &node,
+    const std::string &key, const std::string &fall_back) const
+{
+    auto it = node->children.find(key);
+    if (it != node->children.end())
+        return it->second;
+
+    auto fallback_it = node->children.find(fall_back);
+    if (fallback_it != node->children.end())
+        return fallback_it->second;
+
+    return nullptr;
 }
 
 void RuleTree::buildTree()
@@ -245,30 +128,82 @@ void RuleTree::buildTree()
     std::cout << "Rules Tree built Successfully!" << std::endl;
 }
 
+bool RuleTree::isPacketAllowed(const std::string& protocol, const std::string& src_ip, const std::string& src_port,
+    const std::string& dst_ip, const std::string& dst_port)
+{
+    std::shared_lock lock(_tree_mutex);
+    std::shared_ptr<TreeNode> current = _root;
+
+    // Step 1: Protocol check (must exist)
+    auto proto_it = current->children.find(protocol);
+    if (proto_it == current->children.end())
+        return false;
+    current = proto_it->second;
+
+    // Step 2: Source IP (try specific, fallback to generic)
+    current = findChildOrGeneric(current, src_ip, GENERIC_IP);
+    if (!current) return false;
+
+    // Step 3: Source Port (try specific, fallback to wildcard)
+    current = findChildOrGeneric(current, src_port, "*");
+    if (!current) return false;
+
+    // Step 4: Destination IP (try specific, fallback to generic)
+    current = findChildOrGeneric(current, dst_ip, GENERIC_IP);
+    if (!current) return false;
+
+    // Step 5: Destination Port (try specific, fallback to wildcard)
+    current = findChildOrGeneric(current, dst_port, "*");
+    if (!current) return false;
+
+    // Final decision based on action field
+    return current->action;
+}
+
+bool RuleTree::handleTcpLayer(const pcpp::Packet &packet, const std::string &src_ip,
+    const std::string &dst_ip)
+{
+    const pcpp::TcpLayer* tcp_layer = packet.getLayerOfType<pcpp::TcpLayer>();
+    if (!tcp_layer)
+        return false; // corrupted packet
+
+    const std::string src_port = std::to_string(tcp_layer->getSrcPort());
+    const std::string dst_port = std::to_string(tcp_layer->getDstPort());
+
+    // Check if the packet is allowed by the rule tree
+    return isPacketAllowed("tcp", src_ip, src_port, dst_ip, dst_port);
+
+}
+
+bool RuleTree::handleUdpLayer(const pcpp::Packet &packet, const std::string &src_ip,
+    const std::string &dst_ip)
+{
+        const pcpp::UdpLayer* udp_layer = packet.getLayerOfType<pcpp::UdpLayer>();
+        if (!udp_layer)
+            return false; // corrupted packet
+
+        const std::string src_port = std::to_string(udp_layer->getSrcPort());
+        const std::string dst_port = std::to_string(udp_layer->getDstPort());
+
+        // Check if the packet is allowed by the rule tree
+        return isPacketAllowed("udp", src_ip, src_port, dst_ip, dst_port);
+}
+
 bool RuleTree::handleOutboundForwarding(const pcpp::Packet &parsed_packet)
 {
     const pcpp::IPv4Layer* ipv4_layer = parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
     if (!ipv4_layer) {
         return false; // No IPv4 layer, cannot process the packet
     }
+
+    const std::string src_ip = ipv4_layer->getSrcIPv4Address().toString();
     const std::string dst_ip = ipv4_layer->getDstIPv4Address().toString();
-    std::string dst_port;
 
     if (parsed_packet.isPacketOfType(pcpp::UDP))
-    {
-        const pcpp::UdpLayer* udp_layer = parsed_packet.getLayerOfType<pcpp::UdpLayer>();
-        dst_port = std::to_string(udp_layer->getDstPort());
+        return handleUdpLayer(parsed_packet, src_ip, dst_ip);
 
-        // Check if the packet is allowed by the rule tree
-        return isPacketAllowed("udp", dst_ip, dst_port);
-    }
     if (parsed_packet.isPacketOfType(pcpp::TCP))
-    {
-        const pcpp::TcpLayer* tcp_layer = parsed_packet.getLayerOfType<pcpp::TcpLayer>();
-        dst_port = std::to_string(tcp_layer->getDstPort());
+        return handleTcpLayer(parsed_packet, src_ip, dst_ip);
 
-        // Check if the packet is allowed by the rule tree
-        return isPacketAllowed("tcp", dst_ip, dst_port);
-    }
     return false; // unsupported layer
 }

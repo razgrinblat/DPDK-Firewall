@@ -6,45 +6,160 @@
 #include <IPv4Layer.h>
 #include "IpRulesParser.hpp"
 #include "InotifyWrapper.hpp"
+#include "WebSocketClient.hpp"
 #include <shared_mutex>
 
+/**
+ * @class RuleTree
+ * @brief Singleton class for managing a hierarchical rule tree for packet filtering.
+ *
+ * This class supports dynamic rule insertion, conflict detection, wildcard matching,
+ * and thread-safe evaluation of IPv4/TCP/UDP packet rules.
+ */
 class RuleTree
 {
-
 private:
+    /**
+     * @struct TreeNode
+     * @brief Node in the rule tree containing child nodes and an action flag.
+     */
     struct TreeNode
     {
-        std::unordered_map<std::string, std::shared_ptr<TreeNode>> children;
-        bool action; //True - accept, False - block
+        std::unordered_map<std::string, std::shared_ptr<TreeNode>> children; // Child nodes keyed by rule field value.
+        bool action; // True - accept, False - block
     };
 
-    std::shared_ptr<TreeNode> _root;
-    IpRulesParser& _ip_rules_parser;
-    std::shared_mutex _tree_mutex; // shared mutex for rules writer thread to acquire an exclusive lock
-    InotifyWrapper _file_watcher;
-    std::unordered_set<Rule> _conflicted_rules;
-    int _generic_ip_number; // number that indicate how much generic ip rules are in the tree (for example *.*.*.8)
+    std::shared_ptr<TreeNode> _root; // Root node of the rule tree.
 
+    std::shared_mutex _tree_mutex; // Mutex for thread-safe read/write access.
+    InotifyWrapper _file_watcher; // Watches for rule file changes.
+    std::unordered_set<Rule> _conflicted_rules; // Keeps track of rules that conflict.
+    IpRulesParser& _ip_rules_parser; // Reference to IP rule parser.
+    WebSocketClient& _ws; // Reference to WebSocket client for backend communication.
+
+    static constexpr auto GENERIC_IP = "*.*.*.*"; // Constant used for generic IP wildcard.
+
+    /**
+     * @brief Private constructor for singleton pattern.
+     */
     RuleTree();
 
-    bool isIpSubset(const std::string& ip1,const std::string& ip2);
-    std::optional<std::string> findIpMatch(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
-    bool isIpConflict(const std::shared_ptr<TreeNode>& protocol_branch, const std::string& dst_ip);
-    std::shared_ptr<TreeNode> getChild(const std::shared_ptr<TreeNode>& node, const std::string& key);
+    /**
+     * @brief Get or create a child node from a parent node.
+     * @param node The parent node.
+     * @param key Key to access or create a child.
+     * @return Pointer to the child node.
+     */
+    std::shared_ptr<TreeNode> getOrCreateChild(const std::shared_ptr<TreeNode>& node, const std::string& key);
+
+    /**
+     * @brief Adds a node while checking for conflicts with wildcard rules.
+     * @param node The current node.
+     * @param key Field value to insert.
+     * @param wild_card Value representing a wildcard.
+     * @param error_message Error message to throw on conflict.
+     * @return Pointer to the inserted or existing child node.
+     */
+    std::shared_ptr<TreeNode> addNodeWithConflictCheck(const std::shared_ptr<TreeNode>& node,
+                                                       const std::string& key,
+                                                       const std::string& wild_card,
+                                                       const std::string& error_message);
+
+    void resetTree();
+
+    /**
+     * @brief Adds a rule to the rule tree.
+     * @param rule The rule object to add.
+     */
     void addRule(const Rule& rule);
-    void deleteRule(const Rule& rule);
-    void resolveConflictedRules(const std::unordered_set<Rule>& current_rules);
-    void deletingRulesEventHandler(const std::unordered_set<Rule>& previous_rules, const std::unordered_set<Rule>& current_rules);
-    void insertingRulesEventHandler(const std::unordered_set<Rule>& previous_rules, const std::unordered_set<Rule>& current_rules);
+
+    /**
+     * @brief Handler for rule insertion event triggered by file change.
+     * @param current_rules A list of current rules to insert.
+     */
+    void insertingRulesEventHandler(const std::vector<Rule>& current_rules);
+
+    /**
+     * @brief Callback triggered when the rule file is updated.
+     */
     void FileEventCallback();
-    bool isPacketAllowed(const std::string& protocol, const std::string& ip, const std::string& port);
+
+    /**
+     * @brief Sends a message about conflicted rules to the backend.
+     * @param msg The message string to send.
+     * @return The same message for logging or reuse.
+     */
+    std::string sendConflictedMsgToBackend(const std::string& msg);
+
+    /**
+     * @brief Tries to find a child node by specific key or fallback wildcard.
+     * @param node The current node.
+     * @param key The specific key to match.
+     * @param fall_back Fallback wildcard value.
+     * @return Pointer to the matched child or nullptr.
+     */
+    std::shared_ptr<TreeNode> findChildOrGeneric(const std::shared_ptr<TreeNode>& node,
+                                                 const std::string& key,
+                                                 const std::string& fall_back) const;
+
+    /**
+     * @brief Checks if a packet is allowed based on current rule tree.
+     * @param protocol Packet protocol ("tcp", "udp").
+     * @param src_ip Source IP address.
+     * @param src_port Source port.
+     * @param dst_ip Destination IP address.
+     * @param dst_port Destination port.
+     * @return True if allowed, false if blocked.
+     */
+    bool isPacketAllowed(const std::string& protocol,
+                         const std::string& src_ip,
+                         const std::string& src_port,
+                         const std::string& dst_ip,
+                         const std::string& dst_port);
+
+    /**
+     * @brief Handles TCP packet inspection using rule tree.
+     * @param packet Parsed TCP packet.
+     * @param src_ip Source IP address.
+     * @param dst_ip Destination IP address.
+     * @return True if allowed, false otherwise.
+     */
+    bool handleTcpLayer(const pcpp::Packet& packet, const std::string& src_ip, const std::string& dst_ip);
+
+    /**
+     * @brief Handles UDP packet inspection using rule tree.
+     * @param packet Parsed UDP packet.
+     * @param src_ip Source IP address.
+     * @param dst_ip Destination IP address.
+     * @return True if allowed, false otherwise.
+     */
+    bool handleUdpLayer(const pcpp::Packet& packet, const std::string& src_ip, const std::string& dst_ip);
 
 public:
+    /**
+     * @brief Default destructor.
+     */
     ~RuleTree() = default;
+
     RuleTree(const RuleTree&) = delete;
     RuleTree& operator=(const RuleTree&) = delete;
+
+    /**
+     * @brief Returns the singleton instance of the RuleTree.
+     * @return Reference to the RuleTree instance.
+     */
     static RuleTree& getInstance();
 
+    /**
+     * @brief Initializes and builds the rule tree from configuration.
+     */
     void buildTree();
+
+    /**
+     * @brief Handles outbound packet forwarding based on filtering rules.
+     * @param parsed_packet Parsed packet object.
+     * @return True if packet is allowed to be forwarded, false if blocked.
+     */
     bool handleOutboundForwarding(const pcpp::Packet& parsed_packet);
 };
+
