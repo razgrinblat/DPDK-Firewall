@@ -146,6 +146,11 @@ void SessionTable::processStateMachinePacket(const uint32_t hash, pcpp::Packet &
     if (it == _session_cache.end()) throw std::runtime_error("Session not found");
     const auto& session = it->second;
 
+    if (session->state_object->getState() == TCP_COMMON_TYPES::ESTABLISHED)
+    {
+        DpiEngine::getInstance().processDpiTcpPacket(packet, session->ftp_inspection);
+    }
+
     TcpState next_state;
     //state machine process
     if (is_outbound) {
@@ -158,13 +163,6 @@ void SessionTable::processStateMachinePacket(const uint32_t hash, pcpp::Packet &
     if (next_state != session->state_object->getState())
     {
         session->state_object = TcpStateFactory::createState(next_state, context);
-    }
-
-    if (session->state_object->getState() == TCP_COMMON_TYPES::ESTABLISHED)
-    {
-        lock.unlock();
-        DpiEngine::getInstance().processDpiTcpPacket(packet);
-        lock.lock();
     }
 
     updateStatistics(session, packet_size, is_outbound);

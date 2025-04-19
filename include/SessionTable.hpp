@@ -44,12 +44,13 @@ public:
         uint16_t firewall_port;
         std::unique_ptr<TcpStateClass> state_object;
 
+        bool ftp_inspection; // for FTP data channel detection
         SessionStatics statics{};
 
         Session(const Protocol protocol, const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
                 const uint16_t src_port, const uint16_t dst_port): isAllowed(true),protocol(protocol),
                 source_ip(src_ip), dst_ip(dst_ip),
-                source_port(src_port), dst_port(dst_port), firewall_port(0),state_object(nullptr){}
+                source_port(src_port), dst_port(dst_port), firewall_port(0),state_object(nullptr), ftp_inspection(false){}
     };
 
     static SessionTable& getInstance();

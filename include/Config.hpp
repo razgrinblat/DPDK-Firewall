@@ -16,6 +16,7 @@ public:
     static constexpr auto MAX_IPV4_OCTET_NUMBER = 255;
     static constexpr auto IP_OCTETS = 4;
     static constexpr auto HTTP_PORT = 80;
+    static constexpr auto FTP_PORT = 21;
     static constexpr auto DEFAULT_TTL = 64;
     static constexpr auto DEFAULT_MAX_CONTENT_LENGTH = 10240; // 10KB for max http payload
 

@@ -1,7 +1,8 @@
 #include "TcpSessionHandler.hpp"
 
 TcpSessionHandler::TcpSessionHandler() : _session_table(SessionTable::getInstance()),
-_port_allocator(PortAllocator::getInstance()) {}
+                                         _port_allocator(PortAllocator::getInstance()), _ftp_control_handler(FtpControlHandler::getInstance())
+{}
 
 bool TcpSessionHandler::isNewSession(const pcpp::tcphdr &tcp_header) const
 {
@@ -11,6 +12,14 @@ bool TcpSessionHandler::isNewSession(const pcpp::tcphdr &tcp_header) const
 bool TcpSessionHandler::isTerminationPacket(const pcpp::tcphdr &tcp_header) const
 {
     return tcp_header.rstFlag;
+}
+
+void TcpSessionHandler::setPassiveFtpSession(const std::unique_ptr<SessionTable::Session> &session)
+{
+    if (_ftp_control_handler.isPassiveFtpSession(session))
+    {
+        session->ftp_inspection = true;
+    }
 }
 
 void TcpSessionHandler::processExistingSession(const uint32_t hash, pcpp::Packet &tcp_packet, const pcpp::tcphdr &tcp_header,
@@ -64,6 +73,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
     else if (isNewSession(tcp_header))
     {
         auto session = initTcpSession(tcp_packet);
+        setPassiveFtpSession(session);
         _session_table.addNewSession(tcp_hash, std::move(session), TCP_COMMON_TYPES::SYN_SENT, packet_size, this);
     }
     else {
