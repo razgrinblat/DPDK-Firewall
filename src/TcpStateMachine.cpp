@@ -1,7 +1,7 @@
 #include "TcpStateMachine.hpp"
 #include "TcpSessionHandler.hpp"
 
-std::unique_ptr<TcpStateClass> TcpStateFactory::createState(const SessionTable::TcpState state, TcpSessionHandler* context) {
+std::unique_ptr<TcpStateClass> TcpStateFactory::createState(const TCP_COMMON_TYPES::TcpState state, TcpSessionHandler* context) {
     switch (state)
     {
         case TCP_COMMON_TYPES::SYN_SENT:

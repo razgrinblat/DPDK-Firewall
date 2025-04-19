@@ -44,5 +44,5 @@ public:
      *
      * @param tcp_packet The TCP packet to process.
      */
-    void processDpiTcpPacket(pcpp::Packet& tcp_packet, bool ftp_inspection);
+    void processDpiTcpPacket(pcpp::Packet& tcp_packet);
 };

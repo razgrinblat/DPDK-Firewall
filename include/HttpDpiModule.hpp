@@ -22,7 +22,6 @@ private:
 
     SessionTable& _session_table;
     HttpRulesHandler& _http_rules_handler;
-    std::unordered_map<uint32_t, std::string> _http_buffers; // Buffers for partially reassembled HTTP sessions.
     static constexpr std::string_view http_chunked_tail = "\r\n0\r\n\r\n";
 
     using httpLayerVariant = std::variant<std::unique_ptr<pcpp::HttpRequestLayer>, std::unique_ptr<pcpp::HttpResponseLayer>>;
@@ -36,7 +35,7 @@ private:
      * @param http_frame Full HTTP message as string.
      * @param tcp_data TCP connection metadata.
      */
-    void processHttpMessage(const std::string& http_frame, const pcpp::ConnectionData& tcp_data);
+    void processHttpMessage(std::string& http_frame, const pcpp::ConnectionData& tcp_data);
 
     /**
      * @brief Process an HTTP request and apply outbound rules.

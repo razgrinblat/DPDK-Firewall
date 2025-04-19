@@ -25,7 +25,7 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
     {
         if (const auto decompress_date =extractGzipContentFromResponse(layer))
         {
-            std::cout << decompress_date.value() << std::endl;
+            std::cout << "\n[DECOMPRESSED HTML]\n" <<  decompress_date.value() << std::endl;
             if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
@@ -34,7 +34,9 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
         }
         else if (!layer.getFieldByName(PCPP_HTTP_CONTENT_ENCODING_FIELD))
         {
-            if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(reinterpret_cast<const char*>(layer.getData())))
+            const std::string_view payload_text = reinterpret_cast<const char*>(layer.getData());
+            std::cout << payload_text << std::endl;
+            if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(payload_text.data()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
                 std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed! because:\n" << patterns.value() << "in the html text" << std::endl;
@@ -56,7 +58,7 @@ void HttpDpiModule::onHttpMessageCallBack(const pcpp::TcpStreamData &tcpData)
     const auto data = tcpData.getData();
 
     // Append reassembled data to the buffer
-    std::string& http_frame = _http_buffers[session_key];
+    std::string& http_frame = _session_table.getHttpBuffer(session_key);
     http_frame.append(reinterpret_cast<const char*>(data),data_length);
 
     try
@@ -68,7 +70,7 @@ void HttpDpiModule::onHttpMessageCallBack(const pcpp::TcpStreamData &tcpData)
     }
 }
 
-void HttpDpiModule::processHttpMessage(const std::string &http_frame, const pcpp::ConnectionData &tcp_data)
+void HttpDpiModule::processHttpMessage(std::string &http_frame, const pcpp::ConnectionData &tcp_data)
 {
     if (const auto result = isHttpMessageComplete(http_frame))
     {
@@ -81,7 +83,7 @@ void HttpDpiModule::processHttpMessage(const std::string &http_frame, const pcpp
         {
             processHttpResponse(*response_layer, tcp_data);
         }
-        _http_buffers.erase(tcp_data.flowKey);
+        http_frame.clear(); // clear the session buffer
     }
 }
 

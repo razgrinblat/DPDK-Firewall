@@ -22,11 +22,6 @@ void TcpSessionHandler::setPassiveFtpSession(const std::unique_ptr<SessionTable:
     }
 }
 
-void TcpSessionHandler::processExistingSession(const uint32_t hash, pcpp::Packet &tcp_packet, const pcpp::tcphdr &tcp_header,
-                                               const uint32_t size, const bool is_outbound)
-{
-    _session_table.processStateMachinePacket(hash, tcp_packet, tcp_header, size, is_outbound, this);
-}
 
 TcpSessionHandler& TcpSessionHandler::getInstance()
 {
@@ -67,7 +62,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
             _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, true, this);
         }
         else {
-            processExistingSession(tcp_hash,tcp_packet,tcp_header,packet_size,true);
+            _session_table.processExistingSession(tcp_hash,tcp_packet,tcp_header,true,this);
         }
     }
     else if (isNewSession(tcp_header))
@@ -94,7 +89,8 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
     const auto tcp_header = extractTcpHeader(tcp_packet);
     const uint32_t packet_size = tcp_packet.getRawPacket()->getRawDataLen();
 
-    if (!_session_table.isSessionExists(tcp_hash)) {
+    if (!_session_table.isSessionExists(tcp_hash))
+    {
         throw std::runtime_error("Blocked unknown internet TCP packet");
     }
 
@@ -104,7 +100,7 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
     }
     else
     {
-        processExistingSession(tcp_hash, tcp_packet, tcp_header, packet_size, false);
+        _session_table.processExistingSession(tcp_hash, tcp_packet, tcp_header, false,this);
     }
 
     if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");

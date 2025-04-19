@@ -17,32 +17,26 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
     const pcpp::ConnectionData& conn = tcpData.getConnectionData();
     const DpiEngine* dpi_engine = static_cast<DpiEngine*>(userCookie);
 
+    //DPI to HTTP
     if (conn.dstPort == Config::HTTP_PORT)
     {
         dpi_engine->_http_dpi_module.onHttpMessageCallBack(tcpData);
     }
-    else if (conn.srcPort == Config::FTP_PORT || conn.dstPort == Config::FTP_PORT)
+    // DPI to FTP passive sessions
+    else if (SessionTable::getInstance().isFtpPassiveSession(conn.flowKey))
     {
-        dpi_engine->_ftp_dpi_module.onFtpMessageCallBack(tcpData); // print control commands
-    }
-    else {
-        const auto data = tcpData.getData();
-        const std::string_view file = reinterpret_cast<const char*>(data);
-        std::cout << file << std::endl;
+        dpi_engine->_ftp_dpi_module.onFtpMessageCallBack(tcpData);
     }
 }
 
-void DpiEngine::processDpiTcpPacket(pcpp::Packet &tcp_packet, bool ftp_inspection)
+void DpiEngine::processDpiTcpPacket(pcpp::Packet &tcp_packet)
 {
-    if (tcp_packet.isPacketOfType(pcpp::HTTP))
-    {
-        _tcp_reassembly.reassemblePacket(tcp_packet);
-    }
-    else if (tcp_packet.isPacketOfType(pcpp::FTP)) //handle ftp control channel
+
+    if (tcp_packet.isPacketOfType(pcpp::FTP)) //handle ftp control channel
     {
         _ftp_control_handler.handleFtpPacket(tcp_packet);
     }
-    else if(ftp_inspection)
+    else
     {
         _tcp_reassembly.reassemblePacket(tcp_packet);
     }

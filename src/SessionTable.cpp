@@ -8,6 +8,31 @@ SessionTable::SessionTable()
     _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
 
+const std::unique_ptr<SessionTable::Session>&  SessionTable::getSession(const uint32_t session_hash)
+{
+    const auto it = _session_cache.find(session_hash);
+    if (it == _session_cache.end()) throw std::runtime_error("Session does not exist");
+    return it->second;
+}
+
+void SessionTable::stateMachineProcess(const std::unique_ptr<Session> &session, const pcpp::Packet &packet,
+    const pcpp::tcphdr &header, const bool is_outbound,TcpSessionHandler* context)
+{
+    TcpState next_state;
+    //state machine process
+    if (is_outbound) {
+        next_state = session->state_object->handleClientPacket(packet,header);
+    }
+    else {
+        next_state = session->state_object->handleInternetPacket(packet,header);
+    }
+
+    if (next_state != session->state_object->getState())
+    {
+        session->state_object = TcpStateFactory::createState(next_state, context);
+    }
+}
+
 void SessionTable::cleanUpIdleSessions()
 {
     const auto current_time = std::chrono::steady_clock::now();
@@ -128,68 +153,62 @@ void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Se
 void SessionTable::updateSession(const uint32_t session_hash, const TcpState new_state, const uint32_t packet_size, const bool is_outbound, TcpSessionHandler* tcp_context)
 {
     std::unique_lock lock(_cache_mutex);
-    auto it = _session_cache.find(session_hash);
-    if (it == _session_cache.end()) throw std::runtime_error("Session does not exist");
 
-    const auto& session = it->second;;
+    const auto& session =getSession(session_hash);
     if (tcp_context) session->state_object = TcpStateFactory::createState(new_state,tcp_context);
     session->last_active_time = std::chrono::steady_clock::now();
     updateStatistics(session, packet_size, is_outbound);
 }
 
-void SessionTable::processStateMachinePacket(const uint32_t hash, pcpp::Packet &packet, const pcpp::tcphdr &header,
-                                             const uint32_t packet_size, const bool is_outbound, TcpSessionHandler *context)
+void SessionTable::processExistingSession(const uint32_t session_hash, pcpp::Packet &packet, const pcpp::tcphdr &header,
+    const bool is_outbound, TcpSessionHandler *context)
 {
     std::unique_lock lock(_cache_mutex);
 
-    auto it = _session_cache.find(hash);
-    if (it == _session_cache.end()) throw std::runtime_error("Session not found");
-    const auto& session = it->second;
+    const auto& session = getSession(session_hash);
 
     if (session->state_object->getState() == TCP_COMMON_TYPES::ESTABLISHED)
     {
-        DpiEngine::getInstance().processDpiTcpPacket(packet, session->ftp_inspection);
+        DpiEngine::getInstance().processDpiTcpPacket(packet);
     }
 
-    TcpState next_state;
-    //state machine process
-    if (is_outbound) {
-        next_state = session->state_object->handleClientPacket(packet,header);
-    }
-    else {
-        next_state = session->state_object->handleInternetPacket(packet,header);
-    }
+    stateMachineProcess(session, packet, header, is_outbound, context);
 
-    if (next_state != session->state_object->getState())
-    {
-        session->state_object = TcpStateFactory::createState(next_state, context);
-    }
-
-    updateStatistics(session, packet_size, is_outbound);
+    updateStatistics(session, packet.getRawPacket()->getRawDataLen() , is_outbound);
 }
 
 uint16_t SessionTable::getFirewallPort(const uint32_t session_hash)
 {
     std::shared_lock lock(_cache_mutex);
-    auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end()) return it->second->firewall_port;
-    throw std::runtime_error("Session not found");
+    return getSession(session_hash)->firewall_port;
+}
+
+std::string & SessionTable::getHttpBuffer(const uint32_t session_hash)
+{
+    return getSession(session_hash)->http_buffer;
+}
+
+std::string & SessionTable::getFtpBuffer(const uint32_t session_hash)
+{
+    return getSession(session_hash)->ftp_buffer;
 }
 
 bool SessionTable::isAllowed(const uint32_t session_hash)
 {
     std::shared_lock lock(_cache_mutex);
-    auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end()) return it->second->isAllowed;
-    throw std::runtime_error("Session not found");
+    return getSession(session_hash)->isAllowed;
+}
+
+bool SessionTable::isFtpPassiveSession(const uint32_t session_hash)
+{
+    // function called inside FTP Dpi
+    return getSession(session_hash)->ftp_inspection;
 }
 
 void SessionTable::blockSession(const uint32_t session_hash)
 {
-    std::unique_lock lock(_cache_mutex);
-    auto it = _session_cache.find(session_hash);
-    if (it != _session_cache.end()) it->second->isAllowed = false;
-    else throw std::runtime_error("Session not found");
+    // function called inside HTTP/FTP Dpi
+    getSession(session_hash)->isAllowed = false;
 }
 
 void SessionTable::printSessionCache()

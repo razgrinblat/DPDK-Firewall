@@ -8,9 +8,7 @@ class FtpDpiModule
 {
 
 private:
-
     SessionTable& _session_table;
-    std::unordered_map<uint32_t, std::string> _ftp_buffers;
 
     FtpDpiModule();
     ~FtpDpiModule() = default;
