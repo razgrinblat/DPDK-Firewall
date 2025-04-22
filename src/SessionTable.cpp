@@ -8,6 +8,16 @@ SessionTable::SessionTable()
     _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
 
+void SessionTable::evictLeastRecentSessionIfNeeded(const uint32_t session_hash, const std::unique_ptr<Session> &session)
+{
+    uint32_t session_key_to_close;
+    if (_lru_list.put(session_hash, &session_key_to_close))
+    {
+        _session_cache.erase(session_key_to_close);
+        _port_allocator.releasePort(session->firewall_port);
+    }
+}
+
 const std::unique_ptr<SessionTable::Session>&  SessionTable::getSession(const uint32_t session_hash)
 {
     const auto it = _session_cache.find(session_hash);
@@ -16,7 +26,7 @@ const std::unique_ptr<SessionTable::Session>&  SessionTable::getSession(const ui
 }
 
 void SessionTable::stateMachineProcess(const std::unique_ptr<Session> &session, const pcpp::Packet &packet,
-    const pcpp::tcphdr &header, const bool is_outbound,TcpSessionHandler* context)
+    const pcpp::tcphdr &header, const bool is_outbound)
 {
     TcpState next_state;
     //state machine process
@@ -29,7 +39,7 @@ void SessionTable::stateMachineProcess(const std::unique_ptr<Session> &session, 
 
     if (next_state != session->state_object->getState())
     {
-        session->state_object = TcpStateFactory::createState(next_state, context);
+        session->state_object = TcpStateFactory::createState(next_state);
     }
 }
 
@@ -130,38 +140,34 @@ bool SessionTable::isSessionExists(const uint32_t session_hash)
     return _session_cache.find(session_hash) != _session_cache.end();
 }
 
-void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState state, const uint32_t packet_size, TcpSessionHandler* tcp_context)
+void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState state, const uint32_t packet_size)
 {
     std::unique_lock lock(_cache_mutex);
 
-    uint32_t session_key_to_close;
-    if (_lru_list.put(session_hash, &session_key_to_close))
-    {
-        _session_cache.erase(session_key_to_close);
-        _port_allocator.releasePort(session->firewall_port);
-    }
+    evictLeastRecentSessionIfNeeded(session_hash,session);
 
     session->last_active_time = std::chrono::steady_clock::now();
-    if (tcp_context) session->state_object = TcpStateFactory::createState(state, tcp_context);
+    if (session->protocol == Protocol::TCP_PROTOCOL) session->state_object = TcpStateFactory::createState(state);
     session->firewall_port = _port_allocator.allocatePort(session->source_ip, session->source_port);
     session->statics.sent_packet_count++;
     session->statics.avg_packet_size = calculateAvgPacketSize(session->statics.avg_packet_size, session->statics.sent_packet_count,
         session->statics.received_packet_count, packet_size);
+
     _session_cache[session_hash] = std::move(session);
 }
 
-void SessionTable::updateSession(const uint32_t session_hash, const TcpState new_state, const uint32_t packet_size, const bool is_outbound, TcpSessionHandler* tcp_context)
+void SessionTable::updateSession(const uint32_t session_hash, const TcpState new_state, const uint32_t packet_size, const bool is_outbound)
 {
     std::unique_lock lock(_cache_mutex);
 
-    const auto& session =getSession(session_hash);
-    if (tcp_context) session->state_object = TcpStateFactory::createState(new_state,tcp_context);
+    const auto& session = getSession(session_hash);
+    if (session->protocol == Protocol::TCP_PROTOCOL) session->state_object = TcpStateFactory::createState(new_state);
     session->last_active_time = std::chrono::steady_clock::now();
     updateStatistics(session, packet_size, is_outbound);
 }
 
 void SessionTable::processExistingSession(const uint32_t session_hash, pcpp::Packet &packet, const pcpp::tcphdr &header,
-    const bool is_outbound, TcpSessionHandler *context)
+    const bool is_outbound)
 {
     std::unique_lock lock(_cache_mutex);
 
@@ -169,10 +175,10 @@ void SessionTable::processExistingSession(const uint32_t session_hash, pcpp::Pac
 
     if (session->state_object->getState() == TCP_COMMON_TYPES::ESTABLISHED)
     {
-        DpiEngine::getInstance().processDpiTcpPacket(packet);
+        DpiEngine::getInstance().processDpiTcpPacket(packet,session_hash);
     }
 
-    stateMachineProcess(session, packet, header, is_outbound, context);
+    stateMachineProcess(session, packet, header, is_outbound);
 
     updateStatistics(session, packet.getRawPacket()->getRawDataLen() , is_outbound);
 }
@@ -185,12 +191,14 @@ uint16_t SessionTable::getFirewallPort(const uint32_t session_hash)
 
 std::string & SessionTable::getHttpBuffer(const uint32_t session_hash)
 {
+    // function called inside FTP Dpi
     return getSession(session_hash)->http_buffer;
 }
 
 std::string & SessionTable::getFtpBuffer(const uint32_t session_hash)
 {
-    return getSession(session_hash)->ftp_buffer;
+    // function called inside FTP Dpi
+    return getSession(session_hash)->ftp_context.ftp_buffer;
 }
 
 bool SessionTable::isAllowed(const uint32_t session_hash)
@@ -199,10 +207,52 @@ bool SessionTable::isAllowed(const uint32_t session_hash)
     return getSession(session_hash)->isAllowed;
 }
 
-bool SessionTable::isFtpPassiveSession(const uint32_t session_hash)
+bool SessionTable::isFtpDataSession(const uint32_t session_hash)
 {
     // function called inside FTP Dpi
-    return getSession(session_hash)->ftp_inspection;
+    return getSession(session_hash)->ftp_context.ftp_inspection;
+}
+
+std::optional<uint32_t> SessionTable::getFtpDataSession(const uint32_t session_hash)
+{
+    try {
+        return getSession(session_hash)->ftp_context.data_channel_session;
+    } catch (...) {
+        return {};
+    }
+}
+
+void SessionTable::setFtpDataSession(const uint32_t control_channel_hash, const uint32_t data_channel_hash)
+{
+    getSession(control_channel_hash)->ftp_context.data_channel_session = data_channel_hash;
+}
+
+std::optional<pcpp::FtpRequestLayer::FtpCommand> SessionTable::getFtpRequestCommand(const uint32_t session_hash)
+{
+    try {
+        return getSession(session_hash)->ftp_context.ftp_request_status;
+    } catch (...) {
+        return {};
+    }
+}
+
+std::optional<pcpp::FtpResponseLayer::FtpStatusCode> SessionTable::getFtpResponseStatus(const uint32_t session_hash)
+{
+    try {
+        return getSession(session_hash)->ftp_context.ftp_response_status;
+    } catch (...) {
+        return {};
+    }
+}
+
+void SessionTable::setFtpRequestCommand(const uint32_t session_hash, pcpp::FtpRequestLayer::FtpCommand command)
+{
+    getSession(session_hash)->ftp_context.ftp_request_status = command;
+}
+
+void SessionTable::setFtpResponseStatus(const uint32_t session_hash, pcpp::FtpResponseLayer::FtpStatusCode status)
+{
+    getSession(session_hash)->ftp_context.ftp_response_status = status;
 }
 
 void SessionTable::blockSession(const uint32_t session_hash)

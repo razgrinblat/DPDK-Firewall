@@ -1,7 +1,7 @@
 #include "RuleTree.hpp"
 
 RuleTree::RuleTree() : _root(std::make_shared<TreeNode>()),
-                       _ip_rules_parser(IpRulesParser::getInstance(Config::IP_RULES_PATH)), _ws(WebSocketClient::getInstance())
+                       _ip_rules_parser(IpRulesParser::getInstance(Config::IP_RULES_PATH))
 {
     _file_watcher.addWatch(Config::IP_RULES_PATH, std::bind(&RuleTree::FileEventCallback, this));
     _file_watcher.startWatching();
@@ -16,20 +16,6 @@ std::shared_ptr<RuleTree::TreeNode> RuleTree::getOrCreateChild(const std::shared
     return node->children[key];
 }
 
-std::shared_ptr<RuleTree::TreeNode> RuleTree::addNodeWithConflictCheck(const std::shared_ptr<TreeNode> &node,
-    const std::string &key, const std::string &wild_card, const std::string &error_message)
-{
-    //Rule conflict because generic ip/port cant be above specific rule
-    if (node->children.size() == 0)
-    {
-        return getOrCreateChild(node, key);
-    }
-    if (key != wild_card && node->children.find(wild_card) != node->children.end())
-    {
-        throw std::invalid_argument(error_message);
-    }
-    return getOrCreateChild(node, key);
-}
 
 void RuleTree::resetTree()
 {
@@ -45,17 +31,13 @@ void RuleTree::addRule(const Rule& rule)
     // Step 1: Protocol
     current = getOrCreateChild(current, rule.getProtocol());
     // Step 2: Source IP
-    current = addNodeWithConflictCheck(current, rule.getSrcIp(), GENERIC_IP,
-        "[RULE CONFLICT] Conflicting rules by Source IP address prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    current = getOrCreateChild(current, rule.getSrcIp());
     // Step 3: Source Port
-    current = addNodeWithConflictCheck(current, rule.getSrcPort(), "*",
-        "[RULE CONFLICT] Conflicting rules by Source Port number prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    current = getOrCreateChild(current, rule.getSrcPort());
     // Step 4: Destination IP
-    current = addNodeWithConflictCheck(current, rule.getDstIp(), GENERIC_IP,
-        "[RULE CONFLICT] Conflicting rules by Dest IP address prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    current = getOrCreateChild(current, rule.getDstIp());
     // Step 5: Destination Port
-    current = addNodeWithConflictCheck(current, rule.getDstPort(), "*",
-        "[RULE CONFLICT] Conflicting rules by Destination Port number prevent adding rule: " + rule.getName() + ".\n Delete conflicting rules to proceed.");
+    current = getOrCreateChild(current, rule.getDstPort());
     // Final: Set action
     current->action = rule.getAction();
 }
@@ -64,15 +46,8 @@ void RuleTree::insertingRulesEventHandler(const std::vector<Rule> &current_rules
 {
     for (const auto& rule : current_rules)
     {
-        try {
-            addRule(rule);
-            std::cout << "Adding new rule -> " << rule << std::endl;
-        }
-        catch (const std::invalid_argument& e) // there is a rule conflict
-        {
-            std::cerr << e.what() << std::endl;
-            _ws.send(sendConflictedMsgToBackend(e.what()));
-        }
+        addRule(rule);
+        std::cout << "Adding new rule -> " << rule << std::endl;
     }
 }
 
@@ -94,14 +69,6 @@ RuleTree & RuleTree::getInstance()
 {
     static RuleTree instance;
     return instance;
-}
-
-std::string RuleTree::sendConflictedMsgToBackend(const std::string& msg)
-{
-    Json::Value rule_conflict;
-    rule_conflict["type"] = "rule conflict";
-    rule_conflict["message"] = msg;
-    return rule_conflict.toStyledString();
 }
 
 std::shared_ptr<RuleTree::TreeNode> RuleTree::findChildOrGeneric(const std::shared_ptr<TreeNode> &node,

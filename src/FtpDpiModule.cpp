@@ -9,7 +9,7 @@ FtpDpiModule & FtpDpiModule::getInstance()
     return instance;
 }
 
-//handle data channel transfer.
+// handle data channel transfer.
 void FtpDpiModule::onFtpMessageCallBack(const pcpp::TcpStreamData &tcpData)
 {
     const uint32_t session_key  = tcpData.getConnectionData().flowKey;
@@ -19,6 +19,19 @@ void FtpDpiModule::onFtpMessageCallBack(const pcpp::TcpStreamData &tcpData)
     std::string& ftp_frame = _session_table.getFtpBuffer(session_key);
     ftp_frame.append(reinterpret_cast<const char*>(data),data_length);
 
-    std::cout <<"\n[FILE]\n" << ftp_frame  << "==================================" << std::endl;
+    const auto command = _session_table.getFtpRequestCommand(session_key).value();
+    std::string com_str = pcpp::FtpRequestLayer::getCommandAsString(command);
 
+    if (command == pcpp::FtpRequestLayer::FtpCommand::LIST)
+    {
+        std::cout <<"\n[LIST]\n" << ftp_frame  << "\n==================================\n" << std::endl;
+    }
+    else if (command == pcpp::FtpRequestLayer::FtpCommand::RETR)
+    {
+        std::cout <<"\n[DOWNLOAD]\n" << ftp_frame  << "\n==================================\n" << std::endl;
+    }
+    else if (command == pcpp::FtpRequestLayer::FtpCommand::STOR)
+    {
+        std::cout <<"\n[UPLOAD]\n" << ftp_frame  << "\n==================================\n" << std::endl;
+    }
 }

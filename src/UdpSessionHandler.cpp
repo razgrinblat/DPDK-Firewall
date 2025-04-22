@@ -33,7 +33,7 @@ void UdpSessionHandler::processClientUdpPacket(pcpp::Packet &udp_packet)
     }
     else
     {
-        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)),TCP_COMMON_TYPES::UDP,packet_size);
+        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)), TCP_COMMON_TYPES::UDP, packet_size);
     }
     // change port to firewall port
     const auto udp_layer = udp_packet.getLayerOfType<pcpp::UdpLayer>();

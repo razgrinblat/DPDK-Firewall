@@ -43,6 +43,7 @@ public:
      * @brief Process a TCP packet through the DPI engine.
      *
      * @param tcp_packet The TCP packet to process.
+     * @param session_hash session 5-tuple hash
      */
-    void processDpiTcpPacket(pcpp::Packet& tcp_packet);
+    void processDpiTcpPacket(pcpp::Packet& tcp_packet, uint32_t session_hash);
 };

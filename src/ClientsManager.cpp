@@ -20,7 +20,7 @@ void ClientsManager::changeClientIp(const std::string &src_ip, const pcpp::MacAd
         if (mac == src_mac)
         {
             _clients[old_ip] = src_mac;
-            std::cout << "Client with IP: " << old_ip << " and MAC: " << src_mac.toString() << "changed is IP to:"
+            std::cout << "Client with IP: " << old_ip << " and MAC: " << src_mac.toString() << " changed is IP to:"
              << src_ip << std::endl;
         }
     }

@@ -22,7 +22,6 @@ private:
 
     bool isNewSession(const pcpp::tcphdr& tcp_header) const;
     bool isTerminationPacket(const pcpp::tcphdr& tcp_header) const;
-    void setPassiveFtpSession(const std::unique_ptr<SessionTable::Session> &session);
 
     std::unique_ptr<SessionTable::Session> initTcpSession(const pcpp::Packet& tcp_packet) const;
     static const pcpp::tcphdr& extractTcpHeader(const pcpp::Packet& tcp_packet);

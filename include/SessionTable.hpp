@@ -1,18 +1,9 @@
 #pragma once
-#include <IpAddress.h>
-#include <unordered_map>
 #include <LRUList.h>
-#include <memory>
-#include <chrono>
-#include <shared_mutex>
-#include <atomic>
-#include <thread>
+#include <FtpLayer.h>
 #include <iomanip>
-#include <Packet.h>
 #include "PortAllocator.hpp"
 #include "WebSocketClient.hpp"
-#include "json/json.h"
-#include "TcpCommonTypes.hpp"
 #include "TcpStateMachine.hpp"
 
 class DpiEngine; // forward declaration
@@ -32,6 +23,14 @@ public:
         double avg_packet_size;
     };
 
+    struct FtpContext {
+        bool ftp_inspection; // for FTP data channel detection
+        std::string ftp_buffer;
+        std::optional<pcpp::FtpRequestLayer::FtpCommand> ftp_request_status;
+        std::optional<pcpp::FtpResponseLayer::FtpStatusCode> ftp_response_status;
+        uint32_t data_channel_session;
+    };
+
     struct Session
     {
         bool isAllowed;
@@ -44,32 +43,37 @@ public:
         uint16_t firewall_port;
         std::unique_ptr<TcpStateClass> state_object;
 
-        bool ftp_inspection; // for FTP data channel detection
         std::string http_buffer;
-        std::string ftp_buffer;
 
+        FtpContext ftp_context{};
         SessionStatics statics{};
 
         Session(const Protocol protocol, const pcpp::IPv4Address& src_ip, const pcpp::IPv4Address& dst_ip,
                 const uint16_t src_port, const uint16_t dst_port): isAllowed(true),protocol(protocol),
                 source_ip(src_ip), dst_ip(dst_ip),
-                source_port(src_port), dst_port(dst_port), firewall_port(0),state_object(nullptr), ftp_inspection(false){}
+                source_port(src_port), dst_port(dst_port), firewall_port(0),state_object(nullptr){}
     };
 
     static SessionTable& getInstance();
     ~SessionTable();
 
     bool isSessionExists(uint32_t session_hash);
-    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, TcpState state, uint32_t packet_size, TcpSessionHandler* tcp_context = nullptr);
-    void updateSession(uint32_t session_hash, TcpState new_state, uint32_t packet_size, bool is_outbound, TcpSessionHandler* tcp_context = nullptr);
-    void processExistingSession(uint32_t session_hash, pcpp::Packet& packet,const pcpp::tcphdr& header, bool is_outbound, TcpSessionHandler* context);
+    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, TcpState state, uint32_t packet_size);
+    void updateSession(uint32_t session_hash, TcpState new_state, uint32_t packet_size, bool is_outbound);
+    void processExistingSession(uint32_t session_hash, pcpp::Packet& packet,const pcpp::tcphdr& header, bool is_outbound);
     uint16_t getFirewallPort(uint32_t session_hash);
+    bool isAllowed(uint32_t session_hash);
 
     // DPI functions
     std::string& getHttpBuffer(uint32_t session_hash);
     std::string& getFtpBuffer(uint32_t session_hash);
-    bool isAllowed(uint32_t session_hash);
-    bool isFtpPassiveSession(uint32_t session_hash);
+    bool isFtpDataSession(uint32_t session_hash);
+    std::optional<uint32_t> getFtpDataSession(uint32_t session_hash);
+    void setFtpDataSession(uint32_t control_channel_hash,uint32_t data_channel_hash);
+    std::optional<pcpp::FtpRequestLayer::FtpCommand> getFtpRequestCommand(uint32_t session_hash);
+    std::optional<pcpp::FtpResponseLayer::FtpStatusCode> getFtpResponseStatus(uint32_t session_hash);
+    void setFtpRequestCommand(uint32_t session_hash, pcpp::FtpRequestLayer::FtpCommand command);
+    void setFtpResponseStatus(uint32_t session_hash, pcpp::FtpResponseLayer::FtpStatusCode status);
     void blockSession(uint32_t session_hash);
 
     void printSessionCache();
@@ -78,8 +82,9 @@ public:
 private:
     SessionTable();
 
+    void evictLeastRecentSessionIfNeeded(uint32_t session_hash, const std::unique_ptr<Session>& session);
     const std::unique_ptr<Session>& getSession(uint32_t session_hash);
-    void stateMachineProcess(const std::unique_ptr<Session>& session, const pcpp::Packet& packet, const pcpp::tcphdr &header, bool is_outbound, TcpSessionHandler* context);
+    void stateMachineProcess(const std::unique_ptr<Session>& session, const pcpp::Packet& packet, const pcpp::tcphdr &header, bool is_outbound);
     uint16_t getSessionIdleTimeSeconds(const std::unique_ptr<Session>& session, const std::chrono::steady_clock::time_point& now) const;
     bool shouldRemoveSession(const Session& session, uint16_t idleTime) const;
     void cleanUpIdleSessions();

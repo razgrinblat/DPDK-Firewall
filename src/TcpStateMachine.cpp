@@ -1,28 +1,28 @@
 #include "TcpStateMachine.hpp"
-#include "TcpSessionHandler.hpp"
 
-std::unique_ptr<TcpStateClass> TcpStateFactory::createState(const TCP_COMMON_TYPES::TcpState state, TcpSessionHandler* context) {
+std::unique_ptr<TcpStateClass> TcpStateFactory::createState(const TCP_COMMON_TYPES::TcpState state)
+{
     switch (state)
     {
         case TCP_COMMON_TYPES::SYN_SENT:
-            return std::make_unique<SynSentState>(context);
+            return std::make_unique<SynSentState>();
         case TCP_COMMON_TYPES::SYN_RECEIVED:
-            return std::make_unique<SynReceivedState>(context);
+            return std::make_unique<SynReceivedState>();
         case TCP_COMMON_TYPES::ESTABLISHED:
-            return std::make_unique<EstablishedState>(context);
+            return std::make_unique<EstablishedState>();
         case TCP_COMMON_TYPES::FIN_WAIT1:
-            return std::make_unique<FinWait1State>(context);
+            return std::make_unique<FinWait1State>();
         case TCP_COMMON_TYPES::FIN_WAIT2:
-            return std::make_unique<FinWait2State>(context);
+            return std::make_unique<FinWait2State>();
         case TCP_COMMON_TYPES::CLOSE_WAIT:
-            return std::make_unique<CloseWaitState>(context);
+            return std::make_unique<CloseWaitState>();
         case TCP_COMMON_TYPES::LAST_ACK:
-            return std::make_unique<LastAckState>(context);
+            return std::make_unique<LastAckState>();
         case TCP_COMMON_TYPES::TIME_WAIT:
-            return std::make_unique<TimeWaitState>(context);
+            return std::make_unique<TimeWaitState>();
         case TCP_COMMON_TYPES::UNKNOWN:
         default:
-            return std::make_unique<UnknownState>(context);
+            return std::make_unique<UnknownState>();
     }
 }
 
@@ -43,6 +43,7 @@ TCP_COMMON_TYPES::TcpState SynSentState::handleInternetPacket(const pcpp::Packet
     if (tcp_header.synFlag && tcp_header.ackFlag) {
         return TCP_COMMON_TYPES::SYN_RECEIVED;
     }
+
     throw std::runtime_error("Invalid internet packet in SYN_SENT state: " + tcp_packet.toString());
 }
 

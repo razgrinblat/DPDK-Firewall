@@ -1,6 +1,5 @@
 #pragma once
 #include <TcpReassembly.h>
-#include <FtpLayer.h>
 #include "SessionTable.hpp"
 
 

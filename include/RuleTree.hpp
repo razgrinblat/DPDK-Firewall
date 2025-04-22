@@ -35,7 +35,6 @@ private:
     InotifyWrapper _file_watcher; // Watches for rule file changes.
     std::unordered_set<Rule> _conflicted_rules; // Keeps track of rules that conflict.
     IpRulesParser& _ip_rules_parser; // Reference to IP rule parser.
-    WebSocketClient& _ws; // Reference to WebSocket client for backend communication.
 
     static constexpr auto GENERIC_IP = "*.*.*.*"; // Constant used for generic IP wildcard.
 
@@ -51,19 +50,6 @@ private:
      * @return Pointer to the child node.
      */
     std::shared_ptr<TreeNode> getOrCreateChild(const std::shared_ptr<TreeNode>& node, const std::string& key);
-
-    /**
-     * @brief Adds a node while checking for conflicts with wildcard rules.
-     * @param node The current node.
-     * @param key Field value to insert.
-     * @param wild_card Value representing a wildcard.
-     * @param error_message Error message to throw on conflict.
-     * @return Pointer to the inserted or existing child node.
-     */
-    std::shared_ptr<TreeNode> addNodeWithConflictCheck(const std::shared_ptr<TreeNode>& node,
-                                                       const std::string& key,
-                                                       const std::string& wild_card,
-                                                       const std::string& error_message);
 
     void resetTree();
 
@@ -83,13 +69,6 @@ private:
      * @brief Callback triggered when the rule file is updated.
      */
     void FileEventCallback();
-
-    /**
-     * @brief Sends a message about conflicted rules to the backend.
-     * @param msg The message string to send.
-     * @return The same message for logging or reuse.
-     */
-    std::string sendConflictedMsgToBackend(const std::string& msg);
 
     /**
      * @brief Tries to find a child node by specific key or fallback wildcard.

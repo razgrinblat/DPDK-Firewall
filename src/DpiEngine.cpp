@@ -22,19 +22,18 @@ void DpiEngine::tcpReassemblyMsgReadyCallback(const int8_t sideIndex, const pcpp
     {
         dpi_engine->_http_dpi_module.onHttpMessageCallBack(tcpData);
     }
-    // DPI to FTP passive sessions
-    else if (SessionTable::getInstance().isFtpPassiveSession(conn.flowKey))
+    // DPI to FTP data sessions
+    else if (SessionTable::getInstance().isFtpDataSession(conn.flowKey))
     {
         dpi_engine->_ftp_dpi_module.onFtpMessageCallBack(tcpData);
     }
 }
 
-void DpiEngine::processDpiTcpPacket(pcpp::Packet &tcp_packet)
+void DpiEngine::processDpiTcpPacket(pcpp::Packet &tcp_packet, const uint32_t session_hash)
 {
-
     if (tcp_packet.isPacketOfType(pcpp::FTP)) //handle ftp control channel
     {
-        _ftp_control_handler.handleFtpPacket(tcp_packet);
+        _ftp_control_handler.processFtpPacket(tcp_packet, session_hash);
     }
     else
     {

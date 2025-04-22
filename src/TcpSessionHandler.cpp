@@ -14,15 +14,6 @@ bool TcpSessionHandler::isTerminationPacket(const pcpp::tcphdr &tcp_header) cons
     return tcp_header.rstFlag;
 }
 
-void TcpSessionHandler::setPassiveFtpSession(const std::unique_ptr<SessionTable::Session> &session)
-{
-    if (_ftp_control_handler.isPassiveFtpSession(session))
-    {
-        session->ftp_inspection = true;
-    }
-}
-
-
 TcpSessionHandler& TcpSessionHandler::getInstance()
 {
     static TcpSessionHandler instance;
@@ -59,24 +50,25 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
     {
         if (isTerminationPacket(tcp_header))
         {
-            _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, true, this);
+            _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, true);
         }
-        else {
-            _session_table.processExistingSession(tcp_hash,tcp_packet,tcp_header,true,this);
+        else
+        {
+            _session_table.processExistingSession(tcp_hash,tcp_packet,tcp_header,true);
         }
     }
     else if (isNewSession(tcp_header))
     {
         auto session = initTcpSession(tcp_packet);
-        setPassiveFtpSession(session);
-        _session_table.addNewSession(tcp_hash, std::move(session), TCP_COMMON_TYPES::SYN_SENT, packet_size, this);
+        _ftp_control_handler.isPassiveFtpSession(session, tcp_hash); // identify data channel and flag it for dpi
+        _session_table.addNewSession(tcp_hash, std::move(session), TCP_COMMON_TYPES::SYN_SENT, packet_size);
     }
     else {
         throw std::runtime_error("Invalid initial client packet");
     }
 
     // change client src port to firewall src port (PAT) before forwarding to internet
-    const auto* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
+     const auto* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
     tcp_layer->getTcpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(tcp_hash));
 
     if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");
@@ -84,7 +76,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
 
 void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
 {
-    const uint32_t tcp_hash = hash5Tuple(&tcp_packet, false);
+    const uint32_t tcp_hash = hash5Tuple(&tcp_packet);
 
     const auto tcp_header = extractTcpHeader(tcp_packet);
     const uint32_t packet_size = tcp_packet.getRawPacket()->getRawDataLen();
@@ -96,11 +88,11 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
 
     if (isTerminationPacket(tcp_header))
     {
-        _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, false, this);
+        _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, false);
     }
     else
     {
-        _session_table.processExistingSession(tcp_hash, tcp_packet, tcp_header, false,this);
+        _session_table.processExistingSession(tcp_hash, tcp_packet, tcp_header, false);
     }
 
     if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");
