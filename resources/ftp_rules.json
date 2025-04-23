@@ -1,0 +1,8 @@
+{
+  "ftp_rules": {
+    "download_key_words": ["DELETE", "virus", "108"],
+    "upload_key_words": ["password", "admin", "108"],
+    "download_file_names": [".exe", "secret"],
+    "upload_file_names": [".config", ".zip"]
+  }
+}

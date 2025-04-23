@@ -31,14 +31,16 @@ public:
 
     void loadRules() override;
     const httpRule& getHttpRules();
+    AhoCorasick& getHttpAhoCorasick();
 
 private:
 
     httpRule _http_rule_sets;
+    AhoCorasick _http_aho_corasick;
 
     HttpRulesParser(const std::string& file_path);
 
-    void loadPatternsToAhoCorasick() const;
+    void loadPatternsToAhoCorasick();
 
     void loadSetFromJson(const Json::Value& json_array, std::unordered_set<std::string>& target_set, const std::string& field_name);
 

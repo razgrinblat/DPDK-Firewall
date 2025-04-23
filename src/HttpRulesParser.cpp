@@ -1,16 +1,17 @@
 #include "HttpRulesParser.hpp"
 
-HttpRulesParser::HttpRulesParser(const std::string &file_path) : RulesParser(file_path), _http_rule_sets() {
+HttpRulesParser::HttpRulesParser(const std::string &file_path) : RulesParser(file_path), _http_rule_sets(){
 }
 
-void HttpRulesParser::loadPatternsToAhoCorasick() const
+void HttpRulesParser::loadPatternsToAhoCorasick()
 {
-    AhoCorasick::getInstance().clear();
+    _http_aho_corasick.clear();
+    _http_aho_corasick.clear();
     for( const auto& pattern : _http_rule_sets.payload_words)
     {
-        AhoCorasick::getInstance().addString(pattern);
+        _http_aho_corasick.addString(pattern);
     }
-    AhoCorasick::getInstance().prepare();
+    _http_aho_corasick.prepare();
 }
 
 void HttpRulesParser::loadSetFromJson(const Json::Value &json_array, std::unordered_set<std::string> &target_set,
@@ -81,4 +82,9 @@ void HttpRulesParser::loadRules()
 const HttpRulesParser::httpRule & HttpRulesParser::getHttpRules()
 {
     return _http_rule_sets;
+}
+
+AhoCorasick & HttpRulesParser::getHttpAhoCorasick()
+{
+    return _http_aho_corasick;
 }

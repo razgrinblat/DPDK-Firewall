@@ -3,7 +3,6 @@
 #include <shared_mutex>
 #include "InotifyWrapper.hpp"
 #include "HttpRulesParser.hpp"
-#include "AhoCorasick.hpp"
 
 class HttpRulesHandler
 {
@@ -15,6 +14,7 @@ private:
     std::shared_mutex _rules_mutex;
 
     HttpRulesHandler();
+    ~HttpRulesHandler() = default;
     void fileEventCallback();
 
     bool validateHostName(const pcpp::HeaderField* host_field) const;

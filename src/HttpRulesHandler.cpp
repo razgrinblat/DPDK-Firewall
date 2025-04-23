@@ -133,5 +133,5 @@ bool HttpRulesHandler::allowInboundForwarding(const pcpp::HttpResponseLayer &res
 std::optional<std::string> HttpRulesHandler::allowByPayloadForwarding(const std::string &payload_content)
 {
     std::shared_lock lock(_rules_mutex);
-    return AhoCorasick::getInstance().search(payload_content);
+    return _http_rules_parser.getHttpAhoCorasick().search(payload_content);
 }

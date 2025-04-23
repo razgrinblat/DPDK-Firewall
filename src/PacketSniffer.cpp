@@ -3,6 +3,7 @@
 void PacketSniffer::buildFirewallRules() const
 {
     _http_rules_handler.buildRules();
+    _ftp_rules_handler.buildRules();
     _rule_tree.buildTree();
 }
 
@@ -94,8 +95,8 @@ void PacketSniffer::closeDevices()
 }
 
 PacketSniffer::PacketSniffer(): _device1(nullptr), _device2(nullptr), _keep_running(true),
-_rule_tree(RuleTree::getInstance()),_http_rules_handler(HttpRulesHandler::getInstance()), _ws_client(WebSocketClient::getInstance()),
-_packet_stats(PacketStats::getInstance()), _arp_handler(ArpHandler::getInstance()), _session_table(SessionTable::getInstance()),
+_rule_tree(RuleTree::getInstance()), _http_rules_handler(HttpRulesHandler::getInstance()),_ftp_rules_handler(FtpRulesHandler::getInstance()),
+_ws_client(WebSocketClient::getInstance()),_packet_stats(PacketStats::getInstance()), _arp_handler(ArpHandler::getInstance()), _session_table(SessionTable::getInstance()),
 _clients_manager(ClientsManager::getInstance()), _port_allocator(PortAllocator::getInstance()), _web_receiver_handler(WebReceiverHandler::getInstance())
 {
     buildFirewallRules();

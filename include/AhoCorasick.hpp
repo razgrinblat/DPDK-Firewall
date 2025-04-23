@@ -25,9 +25,6 @@ private:
     std::vector<std::string> _patterns; // store actual pattern strings
     int _word_id; //the last unique ID to each inserted word and is used for tracking matches
 
-    AhoCorasick();
-    ~AhoCorasick() = default;
-
     /**
      * Calculates the suffix (failure) link for a given node
      * @param vertex the vertex ID
@@ -36,9 +33,8 @@ private:
 
 public:
 
-    AhoCorasick(const AhoCorasick&) = delete;
-    AhoCorasick& operator=(const AhoCorasick&) = delete;
-    static AhoCorasick& getInstance();
+    AhoCorasick();
+    ~AhoCorasick() = default;
 
     /**
      * clear the trie

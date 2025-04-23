@@ -1,6 +1,5 @@
 #pragma once
 #include "FtpDpiModule.hpp"
-#include "PortAllocator.hpp"
 #include <FtpLayer.h>
 #include <IPv4Layer.h>
 
@@ -31,6 +30,13 @@ private:
 
     void handleFtpResponseStatus(const pcpp::FtpResponseLayer& response_layer, const pcpp::Packet& ftp_packet, uint32_t session_hash);
 
+    void createPassiveSessionEntry(const pcpp::FtpResponseLayer& response_layer, uint32_t session_hash);
+
+    void setDataChannelStatus(uint32_t session_hash, pcpp::FtpRequestLayer::FtpCommand command);
+
+    void validateUploadFileName(const std::string& upload_file_name, const std::string& packet_info);
+
+    void validateDownloadFileName(const std::string& download_file_name, const std::string& packet_info);
     /**
      *
      * @param response a string of passive mode/active mode arguments such as - Entering Passive Mode (192,168,1,29,78,111)

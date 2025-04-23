@@ -58,12 +58,6 @@ AhoCorasick::AhoCorasick(): _size(0), _root(0), _word_id(0)
     _size++;
 }
 
-AhoCorasick & AhoCorasick::getInstance()
-{
-    static AhoCorasick instance;
-    return instance;
-}
-
 void AhoCorasick::clear()
 {
     _patterns.clear();

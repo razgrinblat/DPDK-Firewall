@@ -49,42 +49,26 @@ void FtpControlHandler::handleFtpRequestCommand(const pcpp::FtpRequestLayer& req
     else if (command == pcpp::FtpRequestLayer::FtpCommand::RETR &&
         _session_table.getFtpResponseStatus(session_hash) == pcpp::FtpResponseLayer::FtpStatusCode::ENTERING_PASSIVE)
     {
-        const std::string requested_file = request_layer.getCommandOption();
-        // TODO : BLOCK DOWNLOAD FILE NAMES
-        //FtpDpiModule::getInstance().
-
-        if (const auto result = _session_table.getFtpDataSession(session_hash))
-        {
-            const uint32_t data_channel_hash = result.value();
-            _session_table.setFtpRequestCommand(data_channel_hash, pcpp::FtpRequestLayer::FtpCommand::RETR);
-        }
+        const std::string requested_file_name = request_layer.getCommandOption();
+        validateDownloadFileName(requested_file_name, ftp_packet.toString());
+        setDataChannelStatus(session_hash,pcpp::FtpRequestLayer::FtpCommand::RETR);
     }
     else if (command == pcpp::FtpRequestLayer::FtpCommand::STOR &&
             _session_table.getFtpResponseStatus(session_hash) == pcpp::FtpResponseLayer::FtpStatusCode::ENTERING_PASSIVE)
     {
-        const std::string requested_file = request_layer.getCommandOption();
-        // TODO : BLOCK UPLOAD FILE NAMES
-        //FtpDpiModule::getInstance().
-
-        if (const auto result = _session_table.getFtpDataSession(session_hash))
-        {
-            const uint32_t data_channel_hash = result.value();
-            _session_table.setFtpRequestCommand(data_channel_hash, pcpp::FtpRequestLayer::FtpCommand::STOR);
-        }
+        const std::string upload_file_name = request_layer.getCommandOption();
+        validateUploadFileName(upload_file_name, ftp_packet.toString());
+        setDataChannelStatus(session_hash,pcpp::FtpRequestLayer::FtpCommand::STOR);
     }
     else if (command == pcpp::FtpRequestLayer::FtpCommand::LIST &&
             _session_table.getFtpResponseStatus(session_hash) == pcpp::FtpResponseLayer::FtpStatusCode::ENTERING_PASSIVE)
     {
-        if (const auto result = _session_table.getFtpDataSession(session_hash))
-        {
-            const uint32_t data_channel_hash = result.value();
-            _session_table.setFtpRequestCommand(data_channel_hash, pcpp::FtpRequestLayer::FtpCommand::LIST);
-        }
+        setDataChannelStatus(session_hash, pcpp::FtpRequestLayer::FtpCommand::LIST);
     }
 
     else if (command == pcpp::FtpRequestLayer::FtpCommand::PORT) //active mode
     {
-
+        throw std::runtime_error("unsupported active mode");
     }
 }
 
@@ -97,19 +81,53 @@ void FtpControlHandler::handleFtpResponseStatus(const pcpp::FtpResponseLayer& re
     {
         if(_session_table.getFtpRequestCommand(session_hash) == pcpp::FtpRequestLayer::FtpCommand::PASV)
         {
-            _session_table.setFtpResponseStatus(session_hash,status);
-
-            const std::string response = response_layer.getStatusOption();
-            if (const auto result = parseFtpMessageToIpPort(response))
-            {
-                const auto&[ip, port] = result.value();
-                // TODO: drop the packet after creating session class
-                std::cout << "IP: " << ip.toString() << " Port: " << port << std::endl;
-                std::lock_guard lock(_table_mutex);
-                _passive_table[{ip,port}] = session_hash;
-            }
+            createPassiveSessionEntry(response_layer,session_hash);
         }
         else throw std::runtime_error("Spoofed enter_passive packet: " + ftp_packet.toString());
+    }
+}
+
+void FtpControlHandler::createPassiveSessionEntry(const pcpp::FtpResponseLayer &response_layer, const uint32_t session_hash)
+{
+    const std::string response = response_layer.getStatusOption();
+    if (const auto result = parseFtpMessageToIpPort(response))
+    {
+        _session_table.setFtpResponseStatus(session_hash,pcpp::FtpResponseLayer::FtpStatusCode::ENTERING_PASSIVE);
+
+        const auto&[ip, port] = result.value();
+        // TODO: drop the packet after creating session class
+        std::cout << "IP: " << ip.toString() << " Port: " << port << std::endl;
+        std::lock_guard lock(_table_mutex);
+        _passive_table[{ip,port}] = session_hash;
+    }
+}
+
+void FtpControlHandler::setDataChannelStatus(const uint32_t session_hash, pcpp::FtpRequestLayer::FtpCommand command)
+{
+    if (const auto result = _session_table.getFtpDataSession(session_hash))
+    {
+        const uint32_t data_channel_hash = result.value();
+        _session_table.setFtpRequestCommand(data_channel_hash,command);
+    }
+}
+
+void FtpControlHandler::validateUploadFileName(const std::string &upload_file_name, const std::string& packet_info)
+{
+    if (!FtpRulesHandler::getInstance().isValidUploadFileName(upload_file_name))
+    {
+        throw std::runtime_error(
+        "Blocked FTP Download: The file \"" + upload_file_name + "\" is not allowed to be downloaded.\n"
+            "Full FTP packet details:\n" + packet_info);
+    }
+}
+
+void FtpControlHandler::validateDownloadFileName(const std::string &download_file_name, const std::string& packet_info)
+{
+    if (!FtpRulesHandler::getInstance().isValidDownloadFileName(download_file_name))
+    {
+        throw std::runtime_error(
+        "Blocked FTP Download: The file \"" + download_file_name + "\" is not allowed to be downloaded.\n"
+            "Full FTP packet details:\n" + packet_info);
     }
 }
 

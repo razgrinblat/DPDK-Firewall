@@ -16,6 +16,7 @@ private:
     bool _keep_running;
     RuleTree& _rule_tree;
     HttpRulesHandler& _http_rules_handler;
+    FtpRulesHandler& _ftp_rules_handler;
     WebSocketClient& _ws_client;
     std::thread _ws_manager_thread;
 
