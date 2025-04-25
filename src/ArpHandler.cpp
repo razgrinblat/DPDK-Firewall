@@ -33,7 +33,7 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
     if (existingEntry != _cache.end() && existingEntry->second != arp_layer.getSenderMacAddress().toString())
     {
          //if there is a different arp entry to this specific ip
-        throw std::invalid_argument("[WARNING] Potential ARP spoofing detected: "
+        throw BlockedPacket("Potential ARP spoofing detected: "
                   "IP " + arp_layer.getSenderIpAddr().toString()
                   + " was previously associated with MAC "
                   + existingEntry->second + " but now has MAC "
@@ -59,7 +59,7 @@ void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
     }
     else
     {
-       throw std::invalid_argument("[WARNING] Potential ARP spoofing detected: "
+       throw BlockedPacket("[WARNING] Potential ARP spoofing detected: "
                       "IP " + sender_ip
                       + " was sent a response that not requested!");
     }
@@ -134,7 +134,7 @@ void ArpHandler::sendArpResponsePacket(const pcpp::IPv4Address& target_ip, const
     const auto device =  pcpp::DpdkDeviceList::getInstance().getDeviceByPort(sender_device_id);
     if (!device->sendPacket(arp_response_packet))
     {
-        std::cerr << "Error: Couldn't send the ARP response." << std::endl;
+        FirewallLogger::getInstance().error("Couldn't send the ARP response.");
     }
     else {
         _packet_stats.consumePacket(arp_response_packet);
@@ -167,7 +167,7 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address& target_ip)
         // Create and send ARP request packet
         if (!sendArpRequestPacket(target_ip))
         {
-            std::cerr << "Error: Couldn't send the ARP request." << std::endl;
+            FirewallLogger::getInstance().error("Couldn't send the ARP request.");
         }
         // Wait for a response or timeout
         std::unique_lock lock(_cache_mutex);

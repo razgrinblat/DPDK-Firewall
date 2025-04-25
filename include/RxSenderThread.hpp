@@ -18,14 +18,8 @@ private:
     UdpSessionHandler& _udp_session_handler;
     std::vector<pcpp::MBufRawPacket*> _packets_to_process;
 
-    inline bool isLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, const pcpp::IPv4Address &local_ip,
-    const pcpp::IPv4Address &subnet_mask)
-    {
-        const uint32_t dest_network = dest_ip.toInt() & subnet_mask.toInt();
-        const uint32_t local_network = local_ip.toInt() & subnet_mask.toInt();
-
-        return local_network == dest_network;
-    }
+    bool isLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, const pcpp::IPv4Address &local_ip,
+    const pcpp::IPv4Address &subnet_mask);
 
     void fetchPacketFromRx();
     void modifyPacketHeaders(pcpp::Packet& parsed_packet, const pcpp::MacAddress& dest_mac);

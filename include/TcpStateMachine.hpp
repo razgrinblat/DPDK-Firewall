@@ -3,6 +3,7 @@
 #include "TcpLayer.h"
 #include "TcpCommonTypes.hpp"
 #include <memory>
+#include "BlockedPacketException.hpp"
 
 // Base State class
 class TcpStateClass

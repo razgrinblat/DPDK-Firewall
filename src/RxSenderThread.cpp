@@ -1,5 +1,13 @@
 #include "RxSenderThread.hpp"
 
+bool RxSenderThread::isLocalNetworkPacket(const pcpp::IPv4Address &dest_ip, const pcpp::IPv4Address &local_ip,
+    const pcpp::IPv4Address &subnet_mask)
+{
+    const uint32_t dest_network = dest_ip.toInt() & subnet_mask.toInt();
+    const uint32_t local_network = local_ip.toInt() & subnet_mask.toInt();
+    return local_network == dest_network;
+}
+
 void RxSenderThread::fetchPacketFromRx()
 {
     std::lock_guard lock_guard(_queues_manager.getRxQueueMutex());
@@ -97,8 +105,11 @@ bool RxSenderThread::run(uint32_t coreId)
                     }
                     modifyPacketHeaders(parsed_packet,dest_mac);
                     mbuf_array[packets_to_send++] = raw_packet;
-                }catch (const std::exception& e) {
-                    std::cerr << e.what() << std::endl;
+                }catch (const BlockedPacket& e) {
+                    FirewallLogger::getInstance().packetDropped(e.what());
+                }
+                catch (const std::exception& e) {
+                    FirewallLogger::getInstance().error(e.what());
                 }
             }
         }

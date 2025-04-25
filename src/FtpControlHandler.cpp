@@ -68,7 +68,7 @@ void FtpControlHandler::handleFtpRequestCommand(const pcpp::FtpRequestLayer& req
 
     else if (command == pcpp::FtpRequestLayer::FtpCommand::PORT) //active mode
     {
-        throw std::runtime_error("unsupported active mode");
+        throw BlockedPacket("Firewall unsupported active mode\nFTP Packet Details:\n" + ftp_packet.toString());
     }
 }
 
@@ -83,7 +83,7 @@ void FtpControlHandler::handleFtpResponseStatus(const pcpp::FtpResponseLayer& re
         {
             createPassiveSessionEntry(response_layer,session_hash);
         }
-        else throw std::runtime_error("Spoofed enter_passive packet: " + ftp_packet.toString());
+        else throw BlockedPacket("Spoofed enter_passive FTP packet\nFTP Packet Details:\n" + ftp_packet.toString());
     }
 }
 
@@ -96,7 +96,6 @@ void FtpControlHandler::createPassiveSessionEntry(const pcpp::FtpResponseLayer &
 
         const auto&[ip, port] = result.value();
         // TODO: drop the packet after creating session class
-        std::cout << "IP: " << ip.toString() << " Port: " << port << std::endl;
         std::lock_guard lock(_table_mutex);
         _passive_table[{ip,port}] = session_hash;
     }
@@ -115,9 +114,9 @@ void FtpControlHandler::validateUploadFileName(const std::string &upload_file_na
 {
     if (!FtpRulesHandler::getInstance().isValidUploadFileName(upload_file_name))
     {
-        throw std::runtime_error(
+        throw BlockedPacket(
         "Blocked FTP Download: The file \"" + upload_file_name + "\" is not allowed to be downloaded.\n"
-            "Full FTP packet details:\n" + packet_info);
+            "FTP Packet Details:\n" + packet_info);
     }
 }
 
@@ -125,9 +124,9 @@ void FtpControlHandler::validateDownloadFileName(const std::string &download_fil
 {
     if (!FtpRulesHandler::getInstance().isValidDownloadFileName(download_file_name))
     {
-        throw std::runtime_error(
+        throw BlockedPacket(
         "Blocked FTP Download: The file \"" + download_file_name + "\" is not allowed to be downloaded.\n"
-            "Full FTP packet details:\n" + packet_info);
+            "FTP Packet Details:\n" + packet_info);
     }
 }
 

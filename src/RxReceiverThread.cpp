@@ -60,7 +60,7 @@ bool RxReceiverThread::run(uint32_t coreId)
                 }
                 else
                 {
-                    std::cout << "Blocked: " << parsed_packet.toString() << std::endl;
+                    FirewallLogger::getInstance().packetDropped(parsed_packet.toString());
                 }
             }
         }

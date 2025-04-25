@@ -52,7 +52,7 @@ void TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
             modifyTcpPacket(parsed_packet,client_ip,client_port);
         }
         else {
-            throw std::runtime_error("Invalid incoming TCP packet: " + parsed_packet.toString());
+            throw BlockedPacket("Blocked TCP packet on invalid port\nPacket Details:\n" + parsed_packet.toString());
         }
     }
     else if (parsed_packet.isPacketOfType(pcpp::UDP))
@@ -64,7 +64,7 @@ void TxSenderThread::modifyPacketHeaders(pcpp::Packet& parsed_packet)
             modifyUdpPacket(parsed_packet, client_ip,client_port);
         }
         else {
-            throw std::runtime_error("Invalid incoming UDP packet: " + parsed_packet.toString());
+            throw BlockedPacket("Blocked UDP packet on invalid port\nPacket Details:\n" + parsed_packet.toString());
         }
     }
     else if (parsed_packet.isPacketOfType(pcpp::ICMP))
@@ -120,8 +120,11 @@ bool TxSenderThread::run(uint32_t coreId)
                     }
                     mbuf_array[packets_to_send++] = raw_packet;
                 }
-                catch (const std::exception& e) { // packet is blocked or unvalid
-                    std::cerr << e.what() << std::endl;
+                catch (const BlockedPacket& e) {
+                    FirewallLogger::getInstance().packetDropped(e.what());
+                }
+                catch (const std::exception& e) {
+                    FirewallLogger::getInstance().error(e.what());
                 }
             }
         }

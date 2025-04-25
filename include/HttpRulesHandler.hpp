@@ -17,11 +17,13 @@ private:
     ~HttpRulesHandler() = default;
     void fileEventCallback();
 
-    bool validateHostName(const pcpp::HeaderField* host_field) const;
-    bool validateUrlPath(const std::string& url_path) const;
-    bool validateContentType(const pcpp::HeaderField* type_field) const;
-    bool validateUserAgent(const pcpp::HeaderField* user_agent) const;
-    bool validateContentLength(const pcpp::HeaderField* content_length) const;
+    std::string httpMethodToString(pcpp::HttpRequestLayer::HttpMethod method);
+    bool isValidMethod(pcpp::HttpRequestLayer::HttpMethod method);
+    bool isValidHostName(const pcpp::HeaderField* host_field) const;
+    bool isValidUrlPath(const std::string& url_path) const;
+    bool isValidContentType(const pcpp::HeaderField* type_field) const;
+    bool isValidUserAgent(const pcpp::HeaderField* user_agent) const;
+    bool isValidContentLength(const pcpp::HeaderField* content_length) const;
 
 
 public:
@@ -30,8 +32,8 @@ public:
     static HttpRulesHandler& getInstance();
 
     void buildRules();
-    bool allowOutboundForwarding(const pcpp::HttpRequestLayer& request_layer);
-    bool allowInboundForwarding(const pcpp::HttpResponseLayer& response_layer);
+    std::optional<std::string> isValidRequest(const pcpp::HttpRequestLayer& request_layer);
+    std::optional<std::string> isValidResponse(const pcpp::HttpResponseLayer& response_layer);
     std::optional<std::string> allowByPayloadForwarding(const std::string& payload_content);
 
 };

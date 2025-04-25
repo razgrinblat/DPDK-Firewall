@@ -51,6 +51,6 @@ void UdpSessionHandler::isValidInternetUdpPacket(pcpp::Packet &udp_packet)
     else
     {
         const auto ip_layer = udp_packet.getLayerOfType<pcpp::IPv4Layer>();
-        throw std::runtime_error("Blocked Unexpected UDP packet from IP: " + ip_layer->getSrcIPv4Address().toString());
+        throw BlockedPacket("Blocked Unexpected UDP packet from IP: " + ip_layer->getSrcIPv4Address().toString());
     }
 }

@@ -32,7 +32,7 @@ void IcmpHandler::sendPacketHandler(pcpp::Packet &packet, const uint16_t sender_
     const auto device =  pcpp::DpdkDeviceList::getInstance().getDeviceByPort(sender_device_id);
     if (!device->sendPacket(packet))
     {
-        std::cerr << "Error: Couldn't send the ICMP response.";
+        FirewallLogger::getInstance().error("Couldn't send the ICMP response.");
     }
     else {
         _packet_stats.consumePacket(packet);
@@ -76,7 +76,7 @@ bool IcmpHandler::processInBoundIcmp(const pcpp::Packet& parsed_packet)
 
     if (icmp_layer->getMessageType() == pcpp::ICMP_ECHO_REQUEST)
     {
-        std::cout << ipv4_layer->getSrcIPv4Address() << " pinging the firewall" << std::endl;
+        FirewallLogger::getInstance().info(ipv4_layer->getSrcIPv4Address().toString() + " pinging the firewall");
         sendIcmpResponse(eth_layer->getSourceMac(), ipv4_layer->getSrcIPv4Address(),*icmp_layer, Config::DPDK_DEVICE_2);
         return false; // No need to push the Tx queue
     }
@@ -99,14 +99,14 @@ bool IcmpHandler::processOutBoundIcmp(const pcpp::Packet& parsed_packet)
 
         if (ipv4_layer->getDstIPv4Address() == Config::DPDK_DEVICE1_IP)
         {
-            std::cout << "Client: " << ipv4_layer->getSrcIPv4Address() << " pinging the firewall" << std::endl;
+            FirewallLogger::getInstance().info("Client: " + ipv4_layer->getSrcIPv4Address().toString() + " pinging the firewall");
             sendIcmpResponse(eth_layer->getSourceMac(), src_client_ip,*icmp_layer, Config::DPDK_DEVICE_1);
             return false; // no need to send this packet outside
         }
 
         const uint16_t icmp_id = icmp_layer->getEchoRequestData()->header->id;
-        std::cout << "Client: " << src_client_ip << " pinging to address ip: " << ipv4_layer->getDstIPv4Address()
-        <<" with ICMP ID -> " << icmp_id << std::endl;
+        FirewallLogger::getInstance().info("Client: " + src_client_ip.toString() + " pinging to address ip: " +
+        ipv4_layer->getDstIPv4Address().toString() + " with ICMP ID -> " + std::to_string(icmp_id));
 
         std::lock_guard lock(_icmp_table_mutex);
         _icmp_request_table[icmp_id] = src_client_ip;

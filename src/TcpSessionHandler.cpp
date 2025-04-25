@@ -71,7 +71,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
      const auto* tcp_layer = tcp_packet.getLayerOfType<pcpp::TcpLayer>();
     tcp_layer->getTcpHeader()->portSrc = pcpp::hostToNet16(_session_table.getFirewallPort(tcp_hash));
 
-    if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");
+    if (!_session_table.isAllowed(tcp_hash)) throw BlockedPacket("Blocked by DPI-\nPacket details\n" + tcp_packet.toString());
 }
 
 void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
@@ -83,7 +83,7 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
 
     if (!_session_table.isSessionExists(tcp_hash))
     {
-        throw std::runtime_error("Blocked unknown internet TCP packet");
+        throw BlockedPacket("Blocked unknown internet TCP packet-\nPacket details\n" + tcp_packet.toString());
     }
 
     if (isTerminationPacket(tcp_header))
@@ -95,5 +95,5 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
         _session_table.processExistingSession(tcp_hash, tcp_packet, tcp_header, false);
     }
 
-    if (!_session_table.isAllowed(tcp_hash)) throw std::runtime_error("Blocked by DPI");
+    if (!_session_table.isAllowed(tcp_hash)) throw BlockedPacket("Blocked by DPI-\nPacket details\n" + tcp_packet.toString());
 }

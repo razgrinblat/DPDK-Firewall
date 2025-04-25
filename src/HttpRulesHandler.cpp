@@ -13,7 +13,37 @@ void HttpRulesHandler::fileEventCallback()
     _http_rule = _http_rules_parser.getHttpRules();
 }
 
-bool HttpRulesHandler::validateHostName(const pcpp::HeaderField* host_field) const
+std::string HttpRulesHandler::httpMethodToString(const pcpp::HttpRequestLayer::HttpMethod method)
+{
+    using M = pcpp::HttpRequestLayer::HttpMethod;
+    switch (method)
+    {
+        case M::HttpGET:     return "GET";
+        case M::HttpHEAD:    return "HEAD";
+        case M::HttpPOST:    return "POST";
+        case M::HttpPUT:     return "PUT";
+        case M::HttpDELETE:  return "DELETE";
+        case M::HttpCONNECT: return "CONNECT";
+        case M::HttpOPTIONS: return "OPTIONS";
+        case M::HttpTRACE:   return "TRACE";
+        case M::HttpPATCH:   return "PATCH";
+        default:             return "UNKNOWN";
+    }
+}
+
+bool HttpRulesHandler::isValidMethod(const pcpp::HttpRequestLayer::HttpMethod method)
+{
+    const std::string str_method = httpMethodToString(method);
+    for (const auto& rule_method  : _http_rule.http_methods)
+    {
+        if ( str_method == rule_method) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool HttpRulesHandler::isValidHostName(const pcpp::HeaderField* host_field) const
 {
     if (host_field != nullptr)
     {
@@ -26,7 +56,7 @@ bool HttpRulesHandler::validateHostName(const pcpp::HeaderField* host_field) con
     return true;
 }
 
-bool HttpRulesHandler::validateUrlPath(const std::string& url_path) const
+bool HttpRulesHandler::isValidUrlPath(const std::string& url_path) const
 {
     const auto& url_words_set = _http_rule.url_path_words;
     for (const auto& word : url_words_set)
@@ -39,7 +69,7 @@ bool HttpRulesHandler::validateUrlPath(const std::string& url_path) const
     return true;
 }
 
-bool HttpRulesHandler::validateContentType(const pcpp::HeaderField* type_field) const
+bool HttpRulesHandler::isValidContentType(const pcpp::HeaderField* type_field) const
 {
     if (type_field != nullptr)
     {
@@ -52,7 +82,7 @@ bool HttpRulesHandler::validateContentType(const pcpp::HeaderField* type_field) 
     return true;
 }
 
-bool HttpRulesHandler::validateUserAgent(const pcpp::HeaderField* user_agent) const
+bool HttpRulesHandler::isValidUserAgent(const pcpp::HeaderField* user_agent) const
 {
     if (user_agent != nullptr)
     {
@@ -66,7 +96,7 @@ bool HttpRulesHandler::validateUserAgent(const pcpp::HeaderField* user_agent) co
     return true;
 }
 
-bool HttpRulesHandler::validateContentLength(const pcpp::HeaderField* content_length) const
+bool HttpRulesHandler::isValidContentLength(const pcpp::HeaderField* content_length) const
 {
     if (content_length != nullptr)
     {
@@ -97,37 +127,50 @@ void HttpRulesHandler::buildRules()
     std::cout << "HTTP Rules built Successfully!" << std::endl;
 }
 
-bool HttpRulesHandler::allowOutboundForwarding(const pcpp::HttpRequestLayer& request_layer)
+std::optional<std::string> HttpRulesHandler::isValidRequest(const pcpp::HttpRequestLayer& request_layer)
 {
     std::shared_lock lock(_rules_mutex);
+
+    //checking http method
+    const auto method = request_layer.getFirstLine()->getMethod();
+    if (!isValidMethod(method)) return {"HTTP METHOD: " + httpMethodToString(method)};
+
     //checking host name rule
-    if (!validateHostName(request_layer.getFieldByName(PCPP_HTTP_HOST_FIELD))) return false;
+    const pcpp::HeaderField* host_field = request_layer.getFieldByName(PCPP_HTTP_HOST_FIELD);
+    if (!isValidHostName(host_field)) return {"Host Field: " + host_field->getFieldValue()};
 
     //checking URL path rule
-    if (!validateUrlPath(request_layer.getUrl())) return false;
+    const std::string url = request_layer.getUrl();
+    if (!isValidUrlPath(url)) return {"Url: " + url};
 
     //checking content type rule
-    if (!validateContentType(request_layer.getFieldByName(PCPP_HTTP_CONTENT_TYPE_FIELD))) return false;
+    const pcpp::HeaderField* content_type = request_layer.getFieldByName(PCPP_HTTP_CONTENT_TYPE_FIELD);
+    if (!isValidContentType(content_type)) return {"Content Type: " + content_type->getFieldValue()};
 
     //checking user agent rule
-    if (!validateUserAgent(request_layer.getFieldByName(PCPP_HTTP_USER_AGENT_FIELD))) return false;
+    const pcpp::HeaderField* user_agent = request_layer.getFieldByName(PCPP_HTTP_USER_AGENT_FIELD);
+    if (!isValidUserAgent(user_agent)) return {"User Agent: " + user_agent->getFieldValue()};
 
     //checking content length rule
-    if (!validateContentLength(request_layer.getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD))) return false;
+    const pcpp::HeaderField* content_length = request_layer.getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
+    if (!isValidContentLength(content_length)) return {"Content Length: " + content_length->getFieldValue()};
 
-    return true;
+    return {};
 }
 
-bool HttpRulesHandler::allowInboundForwarding(const pcpp::HttpResponseLayer &response_layer)
+std::optional<std::string> HttpRulesHandler::isValidResponse(const pcpp::HttpResponseLayer &response_layer)
 {
     std::shared_lock lock(_rules_mutex);
 
     //checking content type rule
-    if (!validateContentType(response_layer.getFieldByName(PCPP_HTTP_CONTENT_TYPE_FIELD))) return false;
+    const pcpp::HeaderField* content_type = response_layer.getFieldByName(PCPP_HTTP_CONTENT_TYPE_FIELD);
+    if (!isValidContentType(content_type)) return {"Content Type: " + content_type->getFieldValue()};
 
-    if (!validateContentLength(response_layer.getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD))) return false;
+    //checking content length rule
+    const pcpp::HeaderField* content_length = response_layer.getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
+    if (!isValidContentLength(content_length)) return {"Content Length: " + content_length->getFieldValue()};
 
-    return true;
+    return {};
 }
 
 std::optional<std::string> HttpRulesHandler::allowByPayloadForwarding(const std::string &payload_content)

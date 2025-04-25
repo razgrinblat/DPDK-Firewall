@@ -7,6 +7,7 @@
 #include "SessionTable.hpp"
 #include "HttpRulesHandler.hpp"
 #include <TcpReassembly.h>
+#include "FirewallLogger.hpp"
 
 /**
  * @class HttpDpiModule

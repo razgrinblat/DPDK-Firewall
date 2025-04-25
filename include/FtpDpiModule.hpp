@@ -2,6 +2,7 @@
 #include <TcpReassembly.h>
 #include "SessionTable.hpp"
 #include "FtpRulesHandler.hpp"
+#include "FirewallLogger.hpp"
 
 class FtpDpiModule
 {

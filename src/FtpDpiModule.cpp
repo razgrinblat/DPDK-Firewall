@@ -1,7 +1,7 @@
 #include "FtpDpiModule.hpp"
 
 FtpDpiModule::FtpDpiModule(): _session_table(SessionTable::getInstance()),
-_ftp_rules_handler(FtpRulesHandler::getInstance())
+                              _ftp_rules_handler(FtpRulesHandler::getInstance())
 {}
 
 void FtpDpiModule::processUploadFile(const std::string &upload_file, const pcpp::ConnectionData& conn_info)
@@ -9,8 +9,9 @@ void FtpDpiModule::processUploadFile(const std::string &upload_file, const pcpp:
     if (const auto patterns = _ftp_rules_handler.allowByUploadFileContent(upload_file))
     {
         _session_table.blockSession(conn_info.flowKey);
-        std::cout << "Session to -> Dst IP: " << conn_info.dstIP << " Dst Port: " << conn_info.dstPort
-        << " is closed! because:\n" << patterns.value() << "in the file content" << std::endl;
+        FirewallLogger::getInstance().info("Session to -> Dst IP: " + conn_info.dstIP.toString() + " Dst Port: " +
+            std::to_string(conn_info.dstPort)
+        + " is closed! because:\n" + patterns.value() + "in the file content");
     }
 }
 
@@ -19,8 +20,9 @@ void FtpDpiModule::processDownloadFile(const std::string &download_file, const p
     if (const auto patterns = _ftp_rules_handler.allowByDownloadFileContent(download_file))
     {
         _session_table.blockSession(conn_info.flowKey);
-        std::cout << "Session to -> Dst IP: " << conn_info.srcIP << " Dst Port: " << conn_info.srcPort
-        << " is closed! because:\n" << patterns.value() << "in the file content" << std::endl;
+        FirewallLogger::getInstance().info("Session to -> Dst IP: " + conn_info.srcIP.toString() + " Dst Port: " +
+            std::to_string(conn_info.srcPort)
+        + " is closed! because:\n" + patterns.value() + "in the file content");
     }
 }
 

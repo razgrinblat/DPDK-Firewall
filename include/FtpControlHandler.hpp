@@ -2,7 +2,7 @@
 #include "FtpDpiModule.hpp"
 #include <FtpLayer.h>
 #include <IPv4Layer.h>
-
+#include "FirewallLogger.hpp"
 
 class FtpControlHandler
 {

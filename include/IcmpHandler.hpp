@@ -4,6 +4,7 @@
 #include <Packet.h>
 #include "ClientsManager.hpp"
 #include "PacketStats.hpp"
+#include "FirewallLogger.hpp"
 #include <DpdkDeviceList.h>
 
 class IcmpHandler

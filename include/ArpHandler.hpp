@@ -12,6 +12,7 @@
 #include <thread>
 #include "PacketStats.hpp"
 #include <atomic>
+#include "FirewallLogger.hpp"
 
 class ArpHandler
 {

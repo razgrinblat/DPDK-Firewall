@@ -6,20 +6,33 @@ HttpDpiModule::HttpDpiModule(): _session_table(SessionTable::getInstance()), _ht
 void HttpDpiModule::processHttpRequest(const std::unique_ptr<pcpp::HttpRequestLayer>& request_layer, const pcpp::ConnectionData& tcp_data)
 {
     const auto& layer = *request_layer;
-    if (!_http_rules_handler.allowOutboundForwarding(layer))
+    if (const auto result = _http_rules_handler.isValidRequest(layer))
     {
         _session_table.blockSession(tcp_data.flowKey);
-        std::cout << "session to Ip: " << tcp_data.dstIP << " is closed!" << std::endl;
+        FirewallLogger::getInstance().info("session to IP: " + tcp_data.dstIP.toString() + " is closed! because "
+            +  result.value() + " is not Allowed");
+    }
+    else if (layer.getLayerPayloadSize() > 0)
+    {
+        const std::string_view payload_text = reinterpret_cast<const char*>(layer.getData());
+        std::cout << payload_text << std::endl;
+        if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(payload_text.data()))
+        {
+            _session_table.blockSession(tcp_data.flowKey);
+            FirewallLogger::getInstance().info("Session to IP: " + tcp_data.dstIP.toString() +
+                " is closed! because:\n" + patterns.value() + "in the html text");
+        }
     }
 }
 
 void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponseLayer>& response_layer, const pcpp::ConnectionData& tcp_data)
 {
     const auto& layer = *response_layer;
-    if (!_http_rules_handler.allowInboundForwarding(layer))
+    if (const auto result = _http_rules_handler.isValidResponse(layer))
     {
         _session_table.blockSession(tcp_data.flowKey);
-        std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed!" << std::endl;
+        FirewallLogger::getInstance().info("session to Ip: " + tcp_data.dstIP.toString() + " is closed! because "
+            +  result.value() + " is not Allowed");
     }
     else if (layer.getLayerPayloadSize() > 0)
     {
@@ -29,7 +42,8 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
             if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
-                std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed! because:\n" << patterns.value() << "in the html text" << std::endl;
+                FirewallLogger::getInstance().info("Session to Ip: " + tcp_data.dstIP.toString() +
+                    " is closed! because:\n" + patterns.value() + "in the html text");
             }
         }
         else if (!layer.getFieldByName(PCPP_HTTP_CONTENT_ENCODING_FIELD))
@@ -39,7 +53,8 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
             if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(payload_text.data()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
-                std::cout << "Session to Ip: " << tcp_data.dstIP << " is closed! because:\n" << patterns.value() << "in the html text" << std::endl;
+                FirewallLogger::getInstance().info("Session to Ip: " + tcp_data.dstIP.toString() +
+                    " is closed! because:\n" + patterns.value() + "in the html text");
             }
         }
     }
