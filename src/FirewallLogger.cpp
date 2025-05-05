@@ -16,14 +16,14 @@ void FirewallLogger::info(const std::string &msg)
 {
     const std::string full_msg = getCurrentTime() + " [INFO] " + msg;
     std::cout << full_msg << std::endl;
-    _ws_client.send(full_msg);
+    _ws_client.send(convertMsgTojsonStr(full_msg,"firewall info"));
 }
 
 void FirewallLogger::packetDropped(const std::string &msg)
 {
     const std::string full_msg = "[PACKET BLOCKED] " + msg;
     std::cout << full_msg << std::endl;
-    _ws_client.send(full_msg);
+    _ws_client.send(convertMsgTojsonStr(full_msg,"firewall block"));
 }
 
 FirewallLogger::FirewallLogger(): _ws_client(WebSocketClient::getInstance())
@@ -42,4 +42,13 @@ std::string FirewallLogger::getCurrentTime()
        << '.' << std::setfill('0') << std::setw(3) << ms.count() << "]";
 
     return ss.str();
+}
+
+std::string FirewallLogger::convertMsgTojsonStr(const std::string& info_msg, const std::string& type)
+{
+    Json::Value json_info;
+    json_info["type"] = type;
+    json_info["data"] = info_msg;
+    const Json::StreamWriterBuilder writer;
+    return writeString(writer, json_info);
 }

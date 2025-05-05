@@ -6,7 +6,14 @@ FtpDpiModule::FtpDpiModule(): _session_table(SessionTable::getInstance()),
 
 void FtpDpiModule::processUploadFile(const std::string &upload_file, const pcpp::ConnectionData& conn_info)
 {
-    if (const auto patterns = _ftp_rules_handler.allowByUploadFileContent(upload_file))
+    if (upload_file.size() >= Config::DEFAULT_MAX_CONTENT_LENGTH)
+    {
+        _session_table.blockSession(conn_info.flowKey);
+        FirewallLogger::getInstance().info("Session to -> Dst IP: " + conn_info.dstIP.toString() + " Dst Port: " +
+            std::to_string(conn_info.dstPort)
+        + " is closed! because:\n" + "file to upload is bigger than: " + std::to_string(Config::DEFAULT_MAX_CONTENT_LENGTH));
+    }
+    else if (const auto patterns = _ftp_rules_handler.allowByUploadFileContent(upload_file))
     {
         _session_table.blockSession(conn_info.flowKey);
         FirewallLogger::getInstance().info("Session to -> Dst IP: " + conn_info.dstIP.toString() + " Dst Port: " +
@@ -17,7 +24,14 @@ void FtpDpiModule::processUploadFile(const std::string &upload_file, const pcpp:
 
 void FtpDpiModule::processDownloadFile(const std::string &download_file, const pcpp::ConnectionData& conn_info)
 {
-    if (const auto patterns = _ftp_rules_handler.allowByDownloadFileContent(download_file))
+    if (download_file.size() >= Config::DEFAULT_MAX_CONTENT_LENGTH)
+    {
+        _session_table.blockSession(conn_info.flowKey);
+        FirewallLogger::getInstance().info("Session to -> Dst IP: " + conn_info.srcIP.toString() + " Dst Port: " +
+            std::to_string(conn_info.srcPort)
+        + " is closed! because:\n" + "file to download is bigger than: " + std::to_string(Config::DEFAULT_MAX_CONTENT_LENGTH));
+    }
+    else if (const auto patterns = _ftp_rules_handler.allowByDownloadFileContent(download_file))
     {
         _session_table.blockSession(conn_info.flowKey);
         FirewallLogger::getInstance().info("Session to -> Dst IP: " + conn_info.srcIP.toString() + " Dst Port: " +

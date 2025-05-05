@@ -58,15 +58,15 @@ void PacketStats::sendPacketStatsToBackend()
 {
     Json::Value packet_stats;
     packet_stats["type"] = "packet stats"; // Title field
-    packet_stats["tcpPacketCount"] = _tcpPacketCount;
-    packet_stats["udpPacketCount"] = _udpPacketCount;
-    packet_stats["dnsPacketCount"] = _dnsPacketCount;
-    packet_stats["httpPacketCount"] = _httpPacketCount;
-    packet_stats["sslPacketCount"] = _sslPacketCount;
-    packet_stats["arpPacketCount"] = _arpPacketCount;
-    packet_stats["icmpPacketCount"] = _icmpPacketCount;
-    packet_stats["sshPacketCount"] = _sshPacketCount;
-    packet_stats["ftpPacketCount"] = _ftpPacketCount;
+    packet_stats["tcp"] = _tcpPacketCount;
+    packet_stats["udp"] = _udpPacketCount;
+    packet_stats["dns"] = _dnsPacketCount;
+    packet_stats["http"] = _httpPacketCount;
+    packet_stats["ssl"] = _sslPacketCount;
+    packet_stats["arp"] = _arpPacketCount;
+    packet_stats["icmp"] = _icmpPacketCount;
+    packet_stats["ssh"] = _sshPacketCount;
+    packet_stats["ftp"] = _ftpPacketCount;
 
     // Convert JSON object to string
     const Json::StreamWriterBuilder writer;

@@ -80,7 +80,8 @@ void ArpHandler::handleReceivedArpPacket(const pcpp::ArpLayer& arp_layer)
             }
         }catch (const std::exception& e)
         {
-            std::cerr << e.what() << std::endl;
+            FirewallLogger::getInstance().packetDropped(arp_layer.toString());
+            FirewallLogger::getInstance().info(e.what());
         }
     }
 }

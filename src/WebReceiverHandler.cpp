@@ -25,10 +25,15 @@ void WebReceiverHandler::webMessageCallBack(const std::string& text)
             //handle ip rules update from the web
             writeRulesToFile(root.toStyledString(),Config::IP_RULES_PATH);
         }
-        else if (root.isMember("dpi_rules"))
+        else if (root.isMember("http_rules"))
         {
-            //handle DPI rules update from the web
+            //handle HTTP DPI rules update from the web
             writeRulesToFile(root.toStyledString(), Config::HTTP_RULES_PATH);
+        }
+        else if (root.isMember("ftp_rules"))
+        {
+            // handle FTP DPI rules update from the web
+            writeRulesToFile(root.toStyledString(),Config::FTP_RULES_PATH);
         }
     }
     else {

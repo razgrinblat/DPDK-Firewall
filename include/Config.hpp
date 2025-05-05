@@ -19,14 +19,14 @@ public:
     static constexpr auto FTP_PORT = 21;
     static constexpr auto PREALLOCATE_SESSION_TABLE_SIZE = 100;
     static constexpr auto DEFAULT_TTL = 64;
-    static constexpr auto DEFAULT_MAX_CONTENT_LENGTH = 10240; // 10KB for max http payload
+    static constexpr auto DEFAULT_MAX_CONTENT_LENGTH = 100*1024; // 100KB for max http payload and ftp file
 
     //RULES FILE PATH
     static auto constexpr IP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/firewall_rules.json";
     static auto constexpr HTTP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/http_rules.json";
     static auto constexpr FTP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/ftp_rules.json";
 
-    static auto constexpr WEBSOCKET_PATH = "ws://192.168.1.29:8080/firewall";
+    static auto constexpr WEBSOCKET_PATH = "ws://192.168.1.32:8080/firewall";
 
     //ARP CONFIGURATION
     static constexpr auto ARP_REQUEST_OPCODE = 256;

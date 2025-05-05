@@ -2,6 +2,7 @@
 #include <Logger.h>
 #include "WebSocketClient.hpp"
 #include "BlockedPacketException.hpp"
+#include <json/json.h>
 
 class FirewallLogger
 {
@@ -23,5 +24,7 @@ private:
 
     FirewallLogger();
     std::string getCurrentTime();
+    std::string convertMsgTojsonStr(const std::string& info_msg, const std::string& type);
+
 
 };

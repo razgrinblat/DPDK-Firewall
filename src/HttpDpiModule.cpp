@@ -31,7 +31,7 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
     if (const auto result = _http_rules_handler.isValidResponse(layer))
     {
         _session_table.blockSession(tcp_data.flowKey);
-        FirewallLogger::getInstance().info("session to Ip: " + tcp_data.dstIP.toString() + " is closed! because "
+        FirewallLogger::getInstance().info("session to IP: " + tcp_data.dstIP.toString() + " is closed! because "
             +  result.value() + " is not Allowed");
     }
     else if (layer.getLayerPayloadSize() > 0)
@@ -42,7 +42,7 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
             if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
-                FirewallLogger::getInstance().info("Session to Ip: " + tcp_data.dstIP.toString() +
+                FirewallLogger::getInstance().info("Session to IP: " + tcp_data.dstIP.toString() +
                     " is closed! because:\n" + patterns.value() + "in the html text");
             }
         }
@@ -53,7 +53,7 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
             if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(payload_text.data()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
-                FirewallLogger::getInstance().info("Session to Ip: " + tcp_data.dstIP.toString() +
+                FirewallLogger::getInstance().info("Session to IP: " + tcp_data.dstIP.toString() +
                     " is closed! because:\n" + patterns.value() + "in the html text");
             }
         }
@@ -76,13 +76,7 @@ void HttpDpiModule::onHttpMessageCallBack(const pcpp::TcpStreamData &tcpData)
     std::string& http_frame = _session_table.getHttpBuffer(session_key);
     http_frame.append(reinterpret_cast<const char*>(data),data_length);
 
-    try
-    {
-        processHttpMessage(http_frame,tcpData.getConnectionData());
-    }
-    catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
+    processHttpMessage(http_frame,tcpData.getConnectionData());
 }
 
 void HttpDpiModule::processHttpMessage(std::string &http_frame, const pcpp::ConnectionData &tcp_data)
@@ -262,7 +256,6 @@ std::optional<HttpDpiModule::httpLayerVariant> HttpDpiModule::handleHttpResponse
 std::optional<HttpDpiModule::httpLayerVariant> HttpDpiModule::handleHttpRequest(const std::string &http_frame)
 {
     auto http_request = createHttpRequestLayer(http_frame);
-
     const auto* content_field = http_request->getFieldByName(PCPP_HTTP_CONTENT_LENGTH_FIELD);
     if (content_field)
     {
@@ -270,7 +263,6 @@ std::optional<HttpDpiModule::httpLayerVariant> HttpDpiModule::handleHttpRequest(
             return {};
         return httpLayerVariant{std::move(http_request)};
     }
-
     return httpLayerVariant{std::move(http_request)};
 }
 
