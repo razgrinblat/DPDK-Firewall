@@ -83,7 +83,7 @@ uint16_t SessionTable::getSessionIdleTimeSeconds(const std::unique_ptr<Session> 
     );
 }
 
-bool SessionTable::shouldRemoveSession(const Session &session, uint16_t idleTime) const
+bool SessionTable::shouldRemoveSession(const Session &session, const uint16_t idleTime) const
 {
     if (session.protocol == Protocol::UDP_PROTOCOL)
         return idleTime >= Config::MAX_IDLE_SESSION_TIME;

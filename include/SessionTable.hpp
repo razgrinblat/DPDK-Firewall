@@ -73,6 +73,7 @@ public:
     std::optional<pcpp::FtpResponseLayer::FtpStatusCode> getFtpResponseStatus(uint32_t session_hash);
     void setFtpRequestCommand(uint32_t session_hash, pcpp::FtpRequestLayer::FtpCommand command);
     void setFtpResponseStatus(uint32_t session_hash, pcpp::FtpResponseLayer::FtpStatusCode status);
+    const std::unique_ptr<Session>& getSession(uint32_t session_hash);
     void blockSession(uint32_t session_hash);
 
     void printSessionCache();
@@ -82,7 +83,6 @@ private:
     SessionTable();
 
     void evictLeastRecentSessionIfNeeded(uint32_t session_hash, const std::unique_ptr<Session>& session);
-    const std::unique_ptr<Session>& getSession(uint32_t session_hash);
     void stateMachineProcess(const std::unique_ptr<Session>& session, const pcpp::Packet& packet, const pcpp::tcphdr &header, bool is_outbound);
     uint16_t getSessionIdleTimeSeconds(const std::unique_ptr<Session>& session, const std::chrono::steady_clock::time_point& now) const;
     bool shouldRemoveSession(const Session& session, uint16_t idleTime) const;

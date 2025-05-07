@@ -76,7 +76,8 @@ void PacketSniffer::runWsManagerThread()
         _packet_stats.sendPacketStatsToBackend();
         _session_table.sendTableToBackend();
         _port_allocator.sendPortsToBackend();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        _arp_handler.sendArpTableToBackend();
+        std::this_thread::sleep_for(std::chrono::milliseconds(Config::WEBSOCKET_SENDING_TIME_IDLE));
     }
 }
 

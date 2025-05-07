@@ -54,11 +54,11 @@ void FtpDpiModule::onFtpMessageCallBack(const pcpp::TcpStreamData &tcpData)
     const size_t data_length = tcpData.getDataLength();
     const auto data = tcpData.getData();
 
-    std::string& ftp_frame = _session_table.getFtpBuffer(session_key);
+    const auto& session = _session_table.getSession(session_key);
+    std::string& ftp_frame = session->ftp_context.ftp_buffer;
     ftp_frame.append(reinterpret_cast<const char*>(data),data_length);
 
     const auto command = _session_table.getFtpRequestCommand(session_key).value();
-    std::string com_str = pcpp::FtpRequestLayer::getCommandAsString(command);
 
     if (command == pcpp::FtpRequestLayer::FtpCommand::LIST)
     {
@@ -66,12 +66,14 @@ void FtpDpiModule::onFtpMessageCallBack(const pcpp::TcpStreamData &tcpData)
     }
     else if (command == pcpp::FtpRequestLayer::FtpCommand::RETR)
     {
-        std::cout <<"\n[DOWNLOAD]\n" << ftp_frame  << "\n==================================\n" << std::endl;
+        FirewallLogger::getInstance().info("Client with Src IP: " + session->source_ip.toString() +
+            " Downloaded file with this content:\n" + ftp_frame);
         processDownloadFile(ftp_frame,connection_data);
     }
     else if (command == pcpp::FtpRequestLayer::FtpCommand::STOR)
     {
-        std::cout <<"\n[UPLOAD]\n" << ftp_frame  << "\n==================================\n" << std::endl;
+        FirewallLogger::getInstance().info("Client with Src IP: " + session->source_ip.toString() +
+            " Uploaded file with this content:\n" + ftp_frame);
         processUploadFile(ftp_frame,connection_data);
     }
 }

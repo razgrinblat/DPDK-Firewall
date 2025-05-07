@@ -1,7 +1,21 @@
 #include "ArpHandler.hpp"
 
-ArpHandler::ArpHandler():_stop_flag(false), _packet_stats(PacketStats::getInstance())
-{}
+ArpHandler::ArpHandler():_stop_flag(false), _packet_stats(PacketStats::getInstance()), _current_entries_counter(0)
+{
+    _clean_up_thread = std::thread(&ArpHandler::runCleanUpThread,this);
+}
+
+bool ArpHandler::addNewArpEntry(const std::string &ip_addr, const std::string &mac_addr)
+{
+    //called inside critical section
+    if (_current_entries_counter < Config::MAX_ARP_CACHE_SIZE)
+    {
+        _cache[ip_addr] = {mac_addr,std::chrono::steady_clock::now()};
+        _current_entries_counter++;
+        return true;
+    }
+    return false;
+}
 
 ArpHandler::~ArpHandler()
 {
@@ -25,43 +39,88 @@ void ArpHandler::stopThreads()
             thread.join();
         }
     }
+    if (_clean_up_thread.joinable()) {
+        _clean_up_thread.join();
+    }
 }
 
 void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
 {
-    const auto existingEntry = _cache.find(arp_layer.getSenderIpAddr().toString());
-    if (existingEntry != _cache.end() && existingEntry->second != arp_layer.getSenderMacAddress().toString())
+    const std::string sender_ip_addr = arp_layer.getSenderIpAddr().toString();
+    const std::string sender_mac_addr = arp_layer.getSenderMacAddress().toString();
+
+    std::lock_guard lock(_cache_mutex);
+    const auto existingEntry = _cache.find(sender_ip_addr);
+    if (existingEntry != _cache.end() && existingEntry->second.mac_addr != sender_mac_addr)
     {
          //if there is a different arp entry to this specific ip
         throw BlockedPacket("Potential ARP spoofing detected: "
                   "IP " + arp_layer.getSenderIpAddr().toString()
                   + " was previously associated with MAC "
-                  + existingEntry->second + " but now has MAC "
-                  + arp_layer.getSenderMacAddress().toString());
+                  + existingEntry->second.mac_addr + " but now has MAC "
+                  + sender_mac_addr);
     }
+    // update the ARP cache if is not full
+    if (addNewArpEntry(sender_ip_addr,sender_mac_addr))
     {
-        std::lock_guard lock(_cache_mutex);
-        _cache[arp_layer.getSenderIpAddr().toString()] = arp_layer.getSenderMacAddress().toString(); //update or add the ARP cache
+        sendArpResponsePacket(arp_layer.getSenderIpAddr(),arp_layer.getSenderMacAddress(), Config::DPDK_DEVICE_2);
     }
-    sendArpResponsePacket(arp_layer.getSenderIpAddr(),arp_layer.getSenderMacAddress(), Config::DPDK_DEVICE_2);
 }
 
 void ArpHandler::handleReceivedArpResponse(const pcpp::ArpLayer &arp_layer)
 {
     const std::string sender_ip = arp_layer.getSenderIpAddr().toString();
+    const std::string sender_mac = arp_layer.getSenderMacAddress().toString();
+
+    std::lock_guard lock(_cache_mutex);
     if (_unresolved_arp_requests.find(sender_ip) != _unresolved_arp_requests.end())
     {
+        // Update ARP cache if is not full
+        if (addNewArpEntry(sender_ip,sender_mac))
         {
-            std::lock_guard lock(_cache_mutex);
-            _cache[sender_ip] = arp_layer.getSenderMacAddress().toString(); // Update ARP cache
+            FirewallLogger::getInstance().info("[IP: " + sender_ip + " ,Mac: " + sender_mac + " ] send ARP Response back to the Firewall");
+            _arp_condition.notify_all();
         }
-        _arp_response_received.notify_all();
     }
     else
     {
        throw BlockedPacket("[WARNING] Potential ARP spoofing detected: "
                       "IP " + sender_ip
                       + " was sent a response that not requested!");
+    }
+}
+
+uint16_t ArpHandler::getArpIdleTimeInSeconds(const std::chrono::steady_clock::time_point &current_time,
+    const std::chrono::steady_clock::time_point &arp_entry_time)
+{
+    return static_cast<uint16_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(current_time - arp_entry_time).count()
+    );
+}
+
+void ArpHandler::cleanUpArpCache()
+{
+    std::lock_guard lock(_cache_mutex);
+    const auto current_time = std::chrono::steady_clock::now();
+    for (auto it = _cache.begin() ; it != _cache.end();)
+    {
+        if (getArpIdleTimeInSeconds(current_time,it->second.last_active_time) > Config::MAX_IDLE_ARP_TIME)
+        {
+            it = _cache.erase(it);
+            _current_entries_counter--;
+        }
+        else {
+            ++it;
+        }
+    }
+}
+
+void ArpHandler::runCleanUpThread()
+{
+    while (!_stop_flag.load())
+    {
+        cleanUpArpCache();
+        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_ARP_ENTRY_TIME));
     }
 }
 
@@ -72,13 +131,14 @@ void ArpHandler::handleReceivedArpPacket(const pcpp::ArpLayer& arp_layer)
         const uint16_t opcode = arp_layer.getArpHeader()->opcode;
         try
         {
-            if(opcode == Config::ARP_REQUEST_OPCODE) { //Arp request
+            if(opcode == Config::ARP_REQUEST_OPCODE) { //Arp Broadcast (request)
                 handleReceivedArpRequest(arp_layer);
             }
             else { //Arp response
                 handleReceivedArpResponse(arp_layer);
             }
-        }catch (const std::exception& e)
+        }
+        catch (const std::exception& e)
         {
             FirewallLogger::getInstance().packetDropped(arp_layer.toString());
             FirewallLogger::getInstance().info(e.what());
@@ -104,7 +164,7 @@ pcpp::MacAddress ArpHandler::getMacAddress(const pcpp::IPv4Address& ip)
 {
     std::lock_guard lock(_cache_mutex);
     const auto it = _cache.find(ip.toString());
-    return (it != _cache.end()) ? it->second : pcpp::MacAddress::Zero;
+    return (it != _cache.end()) ? it->second.mac_addr : pcpp::MacAddress::Zero;
 }
 
 void ArpHandler::printArpCache()
@@ -116,8 +176,35 @@ void ArpHandler::printArpCache()
 
     for (const auto& entry : _cache)
     {
-        std::cout << std::left << std::setw(20) << entry.first << entry.second << std::endl;
+        std::cout << std::left << std::setw(20) << entry.first << entry.second.mac_addr << std::endl;
     }
+}
+
+void ArpHandler::sendArpTableToBackend()
+{
+    std::lock_guard lock_guard(_cache_mutex);
+
+    Json::Value arp_table;
+    arp_table["type"] = "arp update";
+
+    Json::Value arp_entries(Json::arrayValue);
+
+    for (const auto& [ip_addr,cache_entry] : _cache)
+    {
+        Json::Value arp_entry;
+        arp_entry["ip"] = ip_addr;
+        arp_entry["mac"] = cache_entry.mac_addr;
+
+        arp_entries.append(arp_entry);
+    }
+
+    arp_table["data"] = arp_entries;
+
+    // Convert JSON object to string
+    const Json::StreamWriterBuilder writer;
+    const std::string message = writeString(writer, arp_table);
+    // Send message via WebSocket
+    WebSocketClient::getInstance().send(message);
 }
 
 void ArpHandler::sendArpResponsePacket(const pcpp::IPv4Address& target_ip, const pcpp::MacAddress& target_mac, const uint16_t sender_device_id) const
@@ -138,6 +225,7 @@ void ArpHandler::sendArpResponsePacket(const pcpp::IPv4Address& target_ip, const
         FirewallLogger::getInstance().error("Couldn't send the ARP response.");
     }
     else {
+        FirewallLogger::getInstance().info("Firewall sent ARP response to -> [IP: " + target_ip.toString() + " ,Mac: " + target_mac.toString() + " ]");
         _packet_stats.consumePacket(arp_response_packet);
     }
 }
@@ -165,14 +253,18 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address& target_ip)
     // Loop to retry ARP requests
     while (attempts < Config::MAX_RETRIES && !_stop_flag.load())
     {
-        // Create and send ARP request packet
-        if (!sendArpRequestPacket(target_ip))
+        // Create and try to send ARP request packet
+        try
         {
-            FirewallLogger::getInstance().error("Couldn't send the ARP request.");
+            sendArpRequestPacket(target_ip);
+        }
+        catch (const std::exception& e) {
+            FirewallLogger::getInstance().error(e.what());
+            break;
         }
         // Wait for a response or timeout
         std::unique_lock lock(_cache_mutex);
-        if (_arp_response_received.wait_for(lock, std::chrono::milliseconds(Config::SLEEP_DURATION), [&]()
+        if (_arp_condition.wait_for(lock, std::chrono::milliseconds(Config::SLEEP_DURATION), [&]()
             {
                 return _cache.find(target_ip_str) != _cache.end();
             })) {
@@ -184,7 +276,7 @@ void ArpHandler::threadHandler(const pcpp::IPv4Address& target_ip)
     removePendingRequest(target_ip); //remove the ARP from the pending_arp_list if resolved
 }
 
-bool ArpHandler::sendArpRequestPacket(const pcpp::IPv4Address& target_ip)
+void ArpHandler::sendArpRequestPacket(const pcpp::IPv4Address& target_ip) const
 {
     // Create and send ARP request packet
     pcpp::EthLayer ethLayer(Config::DPDK_DEVICE2_MAC_ADDRESS, Config::BROADCAST_MAC_ADDRESS, PCPP_ETHERTYPE_ARP);
@@ -198,10 +290,10 @@ bool ArpHandler::sendArpRequestPacket(const pcpp::IPv4Address& target_ip)
     const auto device = pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_2);
     if (device->sendPacket(arp_request_packet))
     {
+        FirewallLogger::getInstance().info("Firewall sent ARP Broadcast to find Mac address of -> [IP: " + target_ip.toString() + " ]");
         _packet_stats.consumePacket(arp_request_packet);
-        return true;
     }
-    return false;
+    else throw std::runtime_error("Couldn't send the ARP request.");
 }
 
 void ArpHandler::removePendingRequest(const pcpp::IPv4Address& target_ip)

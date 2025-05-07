@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <shared_mutex>
 #include <unordered_set>
+#include <FirewallLogger.hpp>
 #include "Config.hpp"
 
 class ClientsManager

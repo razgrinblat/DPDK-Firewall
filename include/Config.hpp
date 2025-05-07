@@ -26,12 +26,17 @@ public:
     static auto constexpr HTTP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/http_rules.json";
     static auto constexpr FTP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/ftp_rules.json";
 
+    //WEBSOCKET
     static auto constexpr WEBSOCKET_PATH = "ws://192.168.1.32:8080/firewall";
+    static auto constexpr WEBSOCKET_SENDING_TIME_IDLE = 1500; // ms
 
     //ARP CONFIGURATION
     static constexpr auto ARP_REQUEST_OPCODE = 256;
     static constexpr auto MAX_RETRIES = 4; // Maximum number of ARP request retries
     static constexpr auto SLEEP_DURATION = 500; // 500 ms between retries
+    static constexpr auto CLEANUP_ARP_ENTRY_TIME = 10; //seconds
+    static constexpr auto MAX_IDLE_ARP_TIME = 30; //seconds
+    static constexpr auto MAX_ARP_CACHE_SIZE = 1000; // max cache size of 1000 entires
 
     //TCP SESSIONS
     static constexpr auto MAX_SESSIONS = 1000;

@@ -20,8 +20,8 @@ void ClientsManager::changeClientIp(const std::string &src_ip, const pcpp::MacAd
         if (mac == src_mac)
         {
             _clients[old_ip] = src_mac;
-            std::cout << "Client with IP: " << old_ip << " and MAC: " << src_mac.toString() << " changed is IP to:"
-             << src_ip << std::endl;
+            FirewallLogger::getInstance().info("Client with IP: " + old_ip + " and MAC: " + src_mac.toString() + " changed is IP to:"
+             + src_ip);
         }
     }
 }
@@ -30,7 +30,7 @@ void ClientsManager::addNewClient(const std::string &src_ip, const pcpp::MacAddr
 {
     _clients[src_ip] = src_mac;
     _clients_mac.emplace(src_mac.toString());
-    std::cout << "Client with IP: " << src_ip << " and MAC: " << src_mac.toString() << " joined to the Firewall!" << std::endl;
+    FirewallLogger::getInstance().info("Client with IP: " + src_ip + " and MAC: " + src_mac.toString() + " joined to the Firewall!");
 }
 
 ClientsManager & ClientsManager::getInstance()
