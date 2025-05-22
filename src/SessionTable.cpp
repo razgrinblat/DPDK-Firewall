@@ -2,7 +2,7 @@
 #include "DpiEngine.hpp"
 
 SessionTable::SessionTable()
-    : _lru_list(Config::MAX_SESSIONS), _stop_flag(false),
+    : _lru_list(Config::PREALLOCATE_SESSION_TABLE_SIZE), _stop_flag(false),
       _port_allocator(PortAllocator::getInstance())
 {
     _session_cache.reserve(Config::PREALLOCATE_SESSION_TABLE_SIZE); // Preallocate elements to smoother performance
@@ -72,7 +72,7 @@ void SessionTable::runCleanUpThread()
     while (!_stop_flag.load())
     {
         cleanUpIdleSessions();
-        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_IDLE_SESSIONS_TIME));
+        std::this_thread::sleep_for(std::chrono::seconds(Config::CLEANUP_IDLE_SESSIONS_TIME)); // avoid busy waiting
     }
 }
 
@@ -141,7 +141,7 @@ bool SessionTable::isSessionExists(const uint32_t session_hash)
     return _session_cache.find(session_hash) != _session_cache.end();
 }
 
-void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const TcpState state, const uint32_t packet_size)
+void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Session> session, const uint32_t packet_size, const TcpState state)
 {
     std::unique_lock lock(_cache_mutex);
 
@@ -157,7 +157,7 @@ void SessionTable::addNewSession(const uint32_t session_hash, std::unique_ptr<Se
     _session_cache[session_hash] = std::move(session);
 }
 
-void SessionTable::updateSession(const uint32_t session_hash, const TcpState new_state, const uint32_t packet_size, const bool is_outbound)
+void SessionTable::updateSession(const uint32_t session_hash, const uint32_t packet_size, const bool is_outbound, const TcpState new_state)
 {
     std::unique_lock lock(_cache_mutex);
 

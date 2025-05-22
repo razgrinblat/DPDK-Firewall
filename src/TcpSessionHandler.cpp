@@ -50,7 +50,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
     {
         if (isTerminationPacket(tcp_header))
         {
-            _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, true);
+            _session_table.updateSession(tcp_hash, packet_size, true,TCP_COMMON_TYPES::TIME_WAIT);
         }
         else
         {
@@ -61,7 +61,7 @@ void TcpSessionHandler::processClientTcpPacket(pcpp::Packet& tcp_packet)
     {
         auto session = initTcpSession(tcp_packet);
         _ftp_control_handler.isPassiveFtpSession(session, tcp_hash); // identify data channel and flag it for dpi
-        _session_table.addNewSession(tcp_hash, std::move(session), TCP_COMMON_TYPES::SYN_SENT, packet_size);
+        _session_table.addNewSession(tcp_hash, std::move(session), packet_size,TCP_COMMON_TYPES::SYN_SENT);
     }
     else {
         throw std::runtime_error("Invalid initial client packet");
@@ -88,7 +88,7 @@ void TcpSessionHandler::isValidInternetTcpPacket(pcpp::Packet& tcp_packet)
 
     if (isTerminationPacket(tcp_header))
     {
-        _session_table.updateSession(tcp_hash, TCP_COMMON_TYPES::TIME_WAIT, packet_size, false);
+        _session_table.updateSession(tcp_hash,packet_size,false, TCP_COMMON_TYPES::TIME_WAIT);
     }
     else
     {

@@ -15,7 +15,6 @@ namespace TCP_COMMON_TYPES
         TIME_WAIT,
         LAST_ACK,
         UNKNOWN,
-        UDP
     };
 
     enum Protocol

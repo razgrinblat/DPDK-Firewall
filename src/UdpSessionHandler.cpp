@@ -29,11 +29,11 @@ void UdpSessionHandler::processClientUdpPacket(pcpp::Packet &udp_packet)
 
     if (_session_table.isSessionExists(udp_hash))
     {
-        _session_table.updateSession(udp_hash,TCP_COMMON_TYPES::UDP,packet_size,true);
+        _session_table.updateSession(udp_hash,packet_size,true);
     }
     else
     {
-        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)), TCP_COMMON_TYPES::UDP, packet_size);
+        _session_table.addNewSession(udp_hash, std::move(initUdpSession(udp_packet)), packet_size);
     }
     // change port to firewall port
     const auto udp_layer = udp_packet.getLayerOfType<pcpp::UdpLayer>();
@@ -46,7 +46,7 @@ void UdpSessionHandler::isValidInternetUdpPacket(pcpp::Packet &udp_packet)
 
     if (_session_table.isSessionExists(udp_hash))
     {
-        _session_table.updateSession(udp_hash, TCP_COMMON_TYPES::UDP,udp_packet.getRawPacket()->getRawDataLen(),false);
+        _session_table.updateSession(udp_hash,udp_packet.getRawPacket()->getRawDataLen(),false);
     }
     else
     {

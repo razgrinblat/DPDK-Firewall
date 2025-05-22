@@ -57,8 +57,8 @@ public:
     ~SessionTable();
 
     bool isSessionExists(uint32_t session_hash);
-    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, TcpState state, uint32_t packet_size);
-    void updateSession(uint32_t session_hash, TcpState new_state, uint32_t packet_size, bool is_outbound);
+    void addNewSession(uint32_t session_hash, std::unique_ptr<Session> session, uint32_t packet_size, TcpState state = TcpState::UNKNOWN);
+    void updateSession(uint32_t session_hash, uint32_t packet_size, bool is_outbound, TcpState new_state = TcpState::UNKNOWN);
     void processExistingSession(uint32_t session_hash, pcpp::Packet& packet,const pcpp::tcphdr& header, bool is_outbound);
     uint16_t getFirewallPort(uint32_t session_hash);
     bool isAllowed(uint32_t session_hash);

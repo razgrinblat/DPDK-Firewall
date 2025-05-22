@@ -1,11 +1,20 @@
 #include "PortAllocator.hpp"
 
-PortAllocator::PortAllocator() :_generator(_seed()) ,_port_range(Config::MIN_DYNAMIC_PORT,Config::MAX_PORT_NUMBER)
-{}
-
-uint16_t PortAllocator::generatePort()
+PortAllocator::PortAllocator() :_generator(_seed()) ,
+_free_count(Config::PREALLOCATE_SESSION_TABLE_SIZE)
 {
-    return _port_range(_generator);
+    _pat_table.reserve(Config::PREALLOCATE_SESSION_TABLE_SIZE);
+
+    for (uint16_t i = 0; i < Config::PREALLOCATE_SESSION_TABLE_SIZE; ++i)
+    {
+        _free_ports_pool[i] = Config::MIN_DYNAMIC_PORT + i;
+    }
+}
+
+uint16_t PortAllocator::generatePoolIndex()
+{
+    std::uniform_int_distribution<uint16_t> dist(0, _free_count - 1);
+    return dist(_generator);
 }
 
 PortAllocator & PortAllocator::getInstance()
@@ -17,8 +26,8 @@ PortAllocator & PortAllocator::getInstance()
 std::optional<std::pair<pcpp::IPv4Address, uint16_t>> PortAllocator::getClientIpAndPort(const uint16_t firewall_port)
 {
     std::shared_lock lock(_table_mutex);
-    auto it = _ports_in_use_table.find(firewall_port);
-    if (it != _ports_in_use_table.end())
+    auto it = _pat_table.find(firewall_port);
+    if (it != _pat_table.end())
     {
         return it->second;
     }
@@ -28,11 +37,13 @@ std::optional<std::pair<pcpp::IPv4Address, uint16_t>> PortAllocator::getClientIp
 uint16_t PortAllocator::allocatePort(const pcpp::IPv4Address& client_ip, const uint16_t client_port)
 {
     std::unique_lock lock(_table_mutex);
-    uint16_t firewall_port;
-    do {
-        firewall_port = generatePort();
-    }while (_ports_in_use_table.find(firewall_port) != _ports_in_use_table.end()); // port is already in use
-    _ports_in_use_table[firewall_port] = {client_ip,client_port};
+    const uint16_t pool_index = generatePoolIndex();
+
+    const uint16_t firewall_port = _free_ports_pool[pool_index];
+    _free_ports_pool[pool_index] = _free_ports_pool[_free_count - 1];
+    _free_count--;
+
+    _pat_table[firewall_port] = {client_ip,client_port};
 
     return firewall_port;
 }
@@ -40,10 +51,11 @@ uint16_t PortAllocator::allocatePort(const pcpp::IPv4Address& client_ip, const u
 void PortAllocator::releasePort(const uint16_t port)
 {
     std::unique_lock lock(_table_mutex);
-    if (!_ports_in_use_table.erase(port))
+    if (!_pat_table.erase(port))
     {
         throw std::runtime_error("port: " + std::to_string(port) + " is not found!");
     }
+    _free_ports_pool[_free_count++] = port;
 }
 
 void PortAllocator::printPortsTable()
@@ -55,7 +67,7 @@ void PortAllocator::printPortsTable()
               << std::endl;
     std::cout << std::string(50, '-') << std::endl;
 
-    for (const auto&[firewall_port, ip_port_pair] : _ports_in_use_table)
+    for (const auto&[firewall_port, ip_port_pair] : _pat_table)
     {
         std::cout << std::left << std::setw(15) << firewall_port << std::setw(20) << ip_port_pair.first.toString()
          << std::setw(15) << ip_port_pair.second << std::endl;
@@ -70,7 +82,7 @@ void PortAllocator::sendPortsToBackend()
 
     std::shared_lock lock(_table_mutex);
 
-    for (const auto&[firewall_port, client_ip_port_pair] : _ports_in_use_table)
+    for (const auto&[firewall_port, client_ip_port_pair] : _pat_table)
     {
         Json::Value element;
         element["client_ip"] = client_ip_port_pair.first.toString();

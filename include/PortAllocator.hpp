@@ -15,11 +15,12 @@ private:
     std::random_device _seed;
     std::mt19937 _generator;
     std::shared_mutex _table_mutex;
-    std::uniform_int_distribution<uint16_t> _port_range;
-    std::unordered_map<uint16_t,std::pair<pcpp::IPv4Address,uint16_t>> _ports_in_use_table; // firewall port to client_ip, client_port
+    uint16_t _free_count;
+    std::unordered_map<uint16_t,std::pair<pcpp::IPv4Address,uint16_t>> _pat_table; // firewall port to client_ip, client_port
+    std::array<uint16_t,Config::PREALLOCATE_SESSION_TABLE_SIZE> _free_ports_pool;
 
     PortAllocator();
-    uint16_t generatePort();
+    uint16_t generatePoolIndex();
 
 public:
     PortAllocator(const PortAllocator&) = delete;

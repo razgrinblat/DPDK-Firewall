@@ -48,7 +48,6 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
 {
     const std::string sender_ip_addr = arp_layer.getSenderIpAddr().toString();
     const std::string sender_mac_addr = arp_layer.getSenderMacAddress().toString();
-
     std::lock_guard lock(_cache_mutex);
     const auto existingEntry = _cache.find(sender_ip_addr);
     if (existingEntry != _cache.end() && existingEntry->second.mac_addr != sender_mac_addr)
@@ -60,7 +59,7 @@ void ArpHandler::handleReceivedArpRequest(const pcpp::ArpLayer& arp_layer)
                   + existingEntry->second.mac_addr + " but now has MAC "
                   + sender_mac_addr);
     }
-    // update the ARP cache if is not full
+    // update the ARP cache if is not full and send ARP response
     if (addNewArpEntry(sender_ip_addr,sender_mac_addr))
     {
         sendArpResponsePacket(arp_layer.getSenderIpAddr(),arp_layer.getSenderMacAddress(), Config::DPDK_DEVICE_2);

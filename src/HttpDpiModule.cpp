@@ -38,7 +38,7 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
     {
         if (const auto decompress_date =extractGzipContentFromResponse(layer))
         {
-            std::cout << "\n[DECOMPRESSED HTML]\n" <<  decompress_date.value() << std::endl;
+            //std::cout << "\n[DECOMPRESSED HTML]\n" <<  decompress_date.value() << std::endl;
             if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(decompress_date.value()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
@@ -49,7 +49,7 @@ void HttpDpiModule::processHttpResponse(const std::unique_ptr<pcpp::HttpResponse
         else if (!layer.getFieldByName(PCPP_HTTP_CONTENT_ENCODING_FIELD))
         {
             const std::string_view payload_text = reinterpret_cast<const char*>(layer.getData());
-            std::cout << payload_text << std::endl;
+            // std::cout << payload_text << std::endl;
             if (const auto patterns = _http_rules_handler.allowByPayloadForwarding(payload_text.data()))
             {
                 _session_table.blockSession(tcp_data.flowKey);
