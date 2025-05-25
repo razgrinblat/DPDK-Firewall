@@ -1,9 +1,21 @@
 #include "PacketStats.hpp"
 
+#include "Config.hpp"
+
 PacketStats::PacketStats() : _ethPacketCount(0), _ipv4PacketCount(0),
                              _tcpPacketCount(0), _udpPacketCount(0), _dnsPacketCount(0), _httpPacketCount(0),
                              _sslPacketCount(0), _arpPacketCount(0), _icmpPacketCount(0), _sshPacketCount(0),
-                             _ftpPacketCount(0), _ws_client(WebSocketClient::getInstance()) {}
+                             _ftpPacketCount(0), _ws_client(WebSocketClient::getInstance())
+{}
+
+void PacketStats::printDeviceStats(const pcpp::DpdkDevice::DpdkDeviceStats &device_stats)
+{
+    std::cout << "device ID: " << static_cast<int>(device_stats.devId) << "\n";
+    std::cout << "Total Bytes Received: " << device_stats.aggregatedRxStats.bytesPerSec << "\n";
+    std::cout << "Rx Throughput: " << device_stats.aggregatedRxStats.bytesPerSec << " [Bytes/sec]\n";
+    std::cout << "Total Bytes Sent: " << device_stats.aggregatedTxStats.bytes << "\n";
+    std::cout << "Tx Throughput: " << device_stats.aggregatedTxStats.bytesPerSec << " [Bytes/sec]\n";
+}
 
 PacketStats & PacketStats::getInstance()
 {
@@ -29,29 +41,34 @@ void PacketStats::consumePacket(const pcpp::Packet &packet)
         _sslPacketCount++;
     if (packet.isPacketOfType(pcpp::ARP))
         _arpPacketCount++;
-    if(packet.isPacketOfType(pcpp::ICMP))
+    if (packet.isPacketOfType(pcpp::ICMP))
         _icmpPacketCount++;
-    if(packet.isPacketOfType(pcpp::SSH))
+    if (packet.isPacketOfType(pcpp::SSH))
         _sshPacketCount++;
-    if(packet.isPacketOfType(pcpp::FTP))
+    if (packet.isPacketOfType(pcpp::FTP))
         _ftpPacketCount++;
 }
 
-
-void PacketStats::printToConsole() const
+void PacketStats::printToConsole()
 {
     std::cout
-            << "Ethernet packet count: " << _ethPacketCount << std::endl
-            << "IPv4 packet count:     " << _ipv4PacketCount << std::endl
-            << "TCP packet count:      " << _tcpPacketCount << std::endl
-            << "UDP packet count:      " << _udpPacketCount << std::endl
-            << "DNS packet count:      " << _dnsPacketCount << std::endl
-            << "HTTP packet count:     " << _httpPacketCount << std::endl
-            << "SSL packet count:      " << _sslPacketCount << std::endl
-            << "ARP packet count:      " << _arpPacketCount << std::endl
-            << "ICMP packet count:     " << _icmpPacketCount << std::endl
-            << "SSH packet count:      " << _sshPacketCount << std::endl
-            << "FTP packet count:      " << _ftpPacketCount << std::endl;
+            << "Ethernet packet count: " << _ethPacketCount << "\n"
+            << "IPv4 packet count:     " << _ipv4PacketCount << "\n"
+            << "TCP packet count:      " << _tcpPacketCount << "\n"
+            << "UDP packet count:      " << _udpPacketCount << "\n"
+            << "DNS packet count:      " << _dnsPacketCount << "\n"
+            << "HTTP packet count:     " << _httpPacketCount << "\n"
+            << "SSL packet count:      " << _sslPacketCount << "\n"
+            << "ARP packet count:      " << _arpPacketCount << "\n"
+            << "ICMP packet count:     " << _icmpPacketCount << "\n"
+            << "SSH packet count:      " << _sshPacketCount << "\n"
+            << "FTP packet count:      " << _ftpPacketCount << "\n";
+
+    pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_1)->getStatistics(_device1_stats);
+    printDeviceStats(_device1_stats);
+
+    pcpp::DpdkDeviceList::getInstance().getDeviceByPort(Config::DPDK_DEVICE_2)->getStatistics(_device2_stats);
+    printDeviceStats(_device2_stats);
 }
 
 void PacketStats::sendPacketStatsToBackend()

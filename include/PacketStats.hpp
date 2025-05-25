@@ -3,6 +3,8 @@
 #include "Packet.h"
 #include "WebSocketClient.hpp"
 #include "json/json.h"
+#include <DpdkDevice.h>
+#include <DpdkDeviceList.h>
 
 class PacketStats
 {
@@ -20,8 +22,11 @@ private:
     uint32_t _ftpPacketCount;
 
     WebSocketClient& _ws_client;
+    pcpp::DpdkDevice::DpdkDeviceStats _device1_stats;
+    pcpp::DpdkDevice::DpdkDeviceStats _device2_stats;
 
     PacketStats();
+    void printDeviceStats(const pcpp::DpdkDevice::DpdkDeviceStats& device_stats);
 
 public:
 
@@ -32,7 +37,7 @@ public:
 
     void consumePacket(const pcpp::Packet& packet);
 
-    void printToConsole() const;
+    void printToConsole();
 
     void sendPacketStatsToBackend();
 
