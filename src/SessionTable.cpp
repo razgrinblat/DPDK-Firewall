@@ -5,7 +5,7 @@ SessionTable::SessionTable()
     : _lru_list(Config::PREALLOCATE_SESSION_TABLE_SIZE), _stop_flag(false),
       _port_allocator(PortAllocator::getInstance())
 {
-    _session_cache.reserve(Config::PREALLOCATE_SESSION_TABLE_SIZE); // Preallocate elements to smoother performance
+    _session_cache.reserve(Config::PREALLOCATE_SESSION_TABLE_SIZE); // Preallocate space to smoother performance
     _clean_up_thread = std::thread(&SessionTable::runCleanUpThread, this);
 }
 

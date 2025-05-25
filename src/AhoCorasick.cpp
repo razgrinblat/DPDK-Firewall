@@ -16,25 +16,18 @@ void AhoCorasick::calcFailureLink(const int vertex)
         return;
     }
 
-    // To calculate the failure link for the current vertex, we need the failure
-    // link for the parent of the vertex and the character that moved us to the
-    // current vertex.
 
     int next_failure_vertex = _trie[_trie[vertex].parent].failure_link;
     const char char_vertex = _trie[vertex].parent_char;
 
     while (true)
     {
-        // if there is an edge with the needed char in his children,
-        // update the failure link to be this child and break
         if (_trie[next_failure_vertex].children.find(char_vertex) != _trie[next_failure_vertex].children.end())
         {
             _trie[vertex].failure_link = _trie[next_failure_vertex].children[char_vertex];
             break;
         }
 
-        // Otherwise, jump by failure links until reach the root or when finding a
-        // better prefix for the current substring
         if (next_failure_vertex == _root)
         {
             _trie[vertex].failure_link = _root;
@@ -124,10 +117,7 @@ std::optional<std::string> AhoCorasick::search(const std::string& text)
                 current_node = _trie[current_node].children[text[i]];
                 break;
             }
-            // Otherwise, jump by failure links and try to find the edge with
-            // this char
-            // If there aren't any possible edges we will eventually ascend to
-            // the root, and at this point we stop checking.
+
             if (current_node == _root) break;
 
             current_node = _trie[current_node].failure_link;

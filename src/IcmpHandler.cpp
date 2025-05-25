@@ -58,12 +58,15 @@ void IcmpHandler::modifyInBoundIcmpResponse(pcpp::Packet &parsed_packet)
         auto it = _icmp_request_table.find(received_icmp_id);
         if (it != _icmp_request_table.end())
         {
-            const pcpp::IPv4Address& client_ip = _icmp_request_table[received_icmp_id];
+            const pcpp::IPv4Address& client_ip = it->second;
             ipv4_layer->setDstIPv4Address(client_ip);
             eth_layer->setSourceMac(Config::DPDK_DEVICE1_MAC_ADDRESS);
             eth_layer->setDestMac(_client_manager.getClientMacAddress(client_ip));
 
             _icmp_request_table.erase(it);
+        }
+        else {
+            throw BlockedPacket("Blocked invalid incoming ICMP packet\nPacket Details:\n" + parsed_packet.toString());
         }
     }
 }
@@ -78,11 +81,11 @@ bool IcmpHandler::processInBoundIcmp(const pcpp::Packet& parsed_packet)
     {
         FirewallLogger::getInstance().info(ipv4_layer->getSrcIPv4Address().toString() + " pinging the firewall");
         sendIcmpResponse(eth_layer->getSourceMac(), ipv4_layer->getSrcIPv4Address(),*icmp_layer, Config::DPDK_DEVICE_2);
-        return false; // No need to push the Tx queue
+        return false; // No need to push to Tx queue
     }
     if (icmp_layer->getMessageType() == pcpp::ICMP_ECHO_REPLY)
     {
-        return true; //push the Tx queue
+        return true; //push to Tx queue
     }
     return false;
 }
