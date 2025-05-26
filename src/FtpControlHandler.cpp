@@ -95,7 +95,7 @@ void FtpControlHandler::createPassiveSessionEntry(const pcpp::FtpResponseLayer &
         _session_table.setFtpResponseStatus(session_hash,pcpp::FtpResponseLayer::FtpStatusCode::ENTERING_PASSIVE);
 
         const auto&[ip, port] = result.value();
-        // TODO: drop the packet after creating session class if the ip, port dont much real L3
+
         std::lock_guard lock(_table_mutex);
         _passive_table[{ip,port}] = session_hash;
     }

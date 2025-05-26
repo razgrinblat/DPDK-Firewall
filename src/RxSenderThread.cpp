@@ -92,7 +92,7 @@ bool RxSenderThread::run(uint32_t coreId)
                 }
                 else
                 {
-                    dest_mac  = Config::ROUTER_MAC_ADDRESS;
+                    dest_mac  = Config::ROUTER_MAC_ADDRESS; // default gateway
                 }
                 try {
                     if (parsed_packet.isPacketOfType(pcpp::TCP))

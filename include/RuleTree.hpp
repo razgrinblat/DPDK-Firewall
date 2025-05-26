@@ -13,7 +13,7 @@
  * @class RuleTree
  * @brief Singleton class for managing a hierarchical rule tree for packet filtering.
  *
- * This class supports dynamic rule insertion, conflict detection, wildcard matching,
+ * This class supports dynamic rule insertion, wildcard matching,
  * and thread-safe evaluation of IPv4/TCP/UDP packet rules.
  */
 class RuleTree
@@ -33,7 +33,6 @@ private:
 
     std::shared_mutex _tree_mutex; // Mutex for thread-safe read/write access.
     InotifyWrapper _file_watcher; // Watches for rule file changes.
-    std::unordered_set<Rule> _conflicted_rules; // Keeps track of rules that conflict.
     IpRulesParser& _ip_rules_parser; // Reference to IP rule parser.
 
     static constexpr auto GENERIC_IP = "*.*.*.*"; // Constant used for generic IP wildcard.
