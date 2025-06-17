@@ -19,7 +19,8 @@ RxReceiverThread::RxReceiverThread(pcpp::DpdkDevice *rx_device) : _rx_device1(rx
                                                                   _arp_handler(ArpHandler::getInstance()),
                                                                   _icmp_handler(IcmpHandler::getInstance()),
                                                                   _packet_stats(PacketStats::getInstance()),
-                                                                  _clients_manager(ClientsManager::getInstance())
+                                                                  _clients_manager(ClientsManager::getInstance()),
+                                                                  _dhcp_server(DhcpServer::getInstance())
 {
     _rx_queue = _queues_manager.getRxQueue();
 }
@@ -47,6 +48,11 @@ bool RxReceiverThread::run(uint32_t coreId)
                 // sending ARP responses back to client
                 const pcpp::ArpLayer* arp_layer = parsed_packet.getLayerOfType<pcpp::ArpLayer>();
                 _arp_handler.sendArpResponsePacket(arp_layer->getSenderIpAddr(), arp_layer->getSenderMacAddress(), Config::DPDK_DEVICE_1);
+            }
+            else if (parsed_packet.isPacketOfType(pcpp::DHCP))
+            {
+                const pcpp::DhcpLayer* dhcp_layer = parsed_packet.getLayerOfType<pcpp::DhcpLayer>();
+                _dhcp_server.DhcpClientHandler(*dhcp_layer);
             }
             else if (parsed_packet.isPacketOfType(pcpp::ICMP) && _icmp_handler.processOutBoundIcmp(parsed_packet))
             {

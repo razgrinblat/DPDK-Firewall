@@ -7,7 +7,7 @@
 #include "ClientsManager.hpp"
 #include "IcmpHandler.hpp"
 #include "PacketStats.hpp"
-#include "FirewallLogger.hpp"
+#include "DhcpServer.hpp"
 
 class RxReceiverThread : public pcpp::DpdkWorkerThread
 {
@@ -19,6 +19,7 @@ private:
     QueuesManager& _queues_manager;
     RuleTree& _rule_tree;
     ArpHandler& _arp_handler;
+    DhcpServer& _dhcp_server;
     IcmpHandler& _icmp_handler;
     PacketStats& _packet_stats;
     ClientsManager& _clients_manager;
