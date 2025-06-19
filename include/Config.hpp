@@ -27,7 +27,7 @@ public:
     static auto constexpr FTP_RULES_PATH = "/tmp/tmp.CcQ3HkWRG0/DPDK-Firewall/resources/ftp_rules.json";
 
     //WEBSOCKET
-    static auto constexpr WEBSOCKET_PATH = "ws://172.20.10.2:8080/firewall";
+    static auto constexpr WEBSOCKET_PATH = "ws://192.168.1.31:8080/firewall";
     static auto constexpr WEBSOCKET_SENDING_TIME_IDLE = 1500; // ms
 
     //ARP CONFIGURATION
