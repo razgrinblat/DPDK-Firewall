@@ -37,7 +37,9 @@ private:
          * @param ipv4_addr IP address offered
          * @param expiry_time Lease time in seconds
          */
-        LeaseEntry(const pcpp::IPv4Address& ipv4_addr, const uint32_t expiry_time);
+        LeaseEntry(const pcpp::IPv4Address& ipv4_addr, const uint32_t expiry_time) :
+        offered_ip_address(ipv4_addr), expiration(std::chrono::steady_clock::now()), expiry_time(expiry_time)
+     {}
     };
 
     std::deque<pcpp::IPv4Address> _dhcp_pool; ///< Available IP addresses
